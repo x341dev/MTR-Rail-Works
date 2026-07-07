@@ -1,0 +1,93 @@
+import dev.x341.mrw.BuildTools
+
+plugins {
+    id "com.gradleup.shadow" version "8.3.6" apply false
+}
+
+subprojects {
+    apply plugin: "java"
+    apply plugin: "com.gradleup.shadow"
+
+    // Single source of truth for everything that varies per Minecraft version (see buildSrc).
+    final BuildTools tools = new BuildTools(minecraftVersion, project.name, project)
+    ext.buildTools = tools
+
+    group = rootProject.group
+    version = "${rootProject.version}+${minecraftVersion}"
+
+    base {
+        archivesName = "${rootProject.archivesBaseName}-${project.name}"
+    }
+
+    configurations {
+        shadowImplementation
+        implementation.extendsFrom shadowImplementation
+    }
+
+    repositories {
+        mavenCentral()
+        flatDir { dirs "${rootDir}/libs" }
+        maven { url = "https://repo.codemc.org/repository/maven-public" }
+        maven { url = "https://api.modrinth.com/maven/" }
+    }
+
+    dependencies {
+        shadowImplementation "org.mtr:Minecraft-Mappings-common:0.0.1"
+        compileOnly "com.google.code.findbugs:jsr305:+"
+        annotationProcessor "systems.manifold:manifold-preprocessor:${manifoldVersion}"
+    }
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(tools.javaLanguageVersion)
+        }
+        withSourcesJar()
+    }
+
+    // Manifold preprocessor: version- or loader-specific Java is gated with directives directly
+    // in the source, e.g.
+    //     #if MC_VERSION >= "11903"
+    //     #if LOADER == "forge"
+    // MC_VERSION is the fixed-width merged version string ("12001"), so string comparison
+    // matches numeric ordering. Requires the "Manifold" IntelliJ plugin for IDE support.
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = "UTF-8"
+        options.release = tools.javaRelease
+        options.compilerArgs += [
+                "-Xplugin:Manifold",
+                "-AMC_VERSION=${tools.mergedMinecraftVersion}",
+                "-ALOADER=${project.name}"
+        ]
+    }
+
+    shadowJar {
+        configurations = [project.configurations.shadowImplementation]
+
+        minimize {
+            exclude(dependency("org.mtr:.*:.*"))
+        }
+        relocate "de.javagl", "dev.x341.mrw.libraries.de.javagl"
+    }
+
+    // Replace placeholder resources; anything version-dependent is resolved here at build time.
+    processResources {
+        final Map<String, Object> replacements = [
+                version          : version.toString(),
+                minecraft_version: minecraftVersion,
+                loader_version   : tools.fabricVersion,
+                pack_format      : tools.packFormat,
+                mixin_compat     : tools.mixinCompatibilityLevel,
+        ]
+        inputs.properties(replacements)
+        filteringCharset = "UTF-8"
+
+        filesMatching(["fabric.mod.json", "META-INF/mods.toml", "pack.mcmeta", "*.mixins.json"]) {
+            expand(replacements)
+        }
+    }
+
+    tasks.withType(AbstractArchiveTask).configureEach {
+        preserveFileTimestamps = false
+        reproducibleFileOrder = true
+    }
+}

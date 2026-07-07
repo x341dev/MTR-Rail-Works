@@ -1,0 +1,30 @@
+modLoader="javafml"
+loaderVersion="[1,)"
+license="MIT"
+
+[[mods]]
+modId="mrw"
+version="${version}"
+displayName="MTR Rail Works"
+description=""
+
+[[dependencies.mrw]]
+    modId="forge"
+    mandatory=true
+    versionRange="[1,)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.mrw]]
+    modId="minecraft"
+    mandatory=true
+    versionRange="[${minecraft_version},)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.mrw]]
+    modId="mtr"
+    mandatory=true
+    versionRange="[4.0.0,)"
+    ordering="NONE"
+    side="BOTH"

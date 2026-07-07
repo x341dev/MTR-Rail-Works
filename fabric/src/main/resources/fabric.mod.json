@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "mrw",
+  "version": "${version}",
+  "name": "MTR Rail Works",
+  "description": "",
+  "authors": [],
+  "contact": {},
+  "license": "MIT",
+  "icon": "assets/mrw/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "dev.x341.mrw.MRWFabric"
+    ],
+    "client": [
+      "dev.x341.mrw.MRWFabricClient"
+    ]
+  },
+  "mixins": [
+    "mrw.mixins.json",
+    {
+      "config": "mrw.client.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "accessWidener": "mrw.accesswidener",
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "minecraft": "${minecraft_version}",
+    "mtr": ">=4.0.0"
+  }
+}

@@ -1,0 +1,89 @@
+plugins {
+    id "net.minecraftforge.gradle" version "6.+"
+    id "org.spongepowered.mixin" version "0.7-SNAPSHOT"
+}
+
+minecraft {
+    mappings channel: "official", version: minecraftVersion
+    accessTransformer = file("src/main/resources/META-INF/accesstransformer.cfg")
+    runs {
+        configureEach {
+            property "forge.logging.markers", "REGISTRIES"
+            property "forge.logging.console.level", "debug"
+        }
+        client {}
+        server { args "--nogui" }
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraftVersion}-${buildTools.forgeVersion}"
+    implementation fg.deobf("maven.modrinth:minecraft-transit-railway:FORGE-${mtrVersion}+${minecraftVersion}")
+    annotationProcessor "org.spongepowered:mixin:0.8.5:processor"
+
+    shadowImplementation "org.mtr:Minecraft-Mappings-forge-${minecraftVersion}:0.0.1"
+}
+
+mixin {
+    add sourceSets.main, "mrw.refmap.json"
+    config "mrw.mixins.json"
+    config "mrw.client.mixins.json"
+}
+
+// The shared `dev.x341.mrw.mod` sources, assets and data live in the Fabric module (source of
+// truth); copy them in before compiling. The copies are gitignored — never edit them here.
+tasks.register("setupFiles") {
+    outputs.upToDateWhen { false }
+    doLast {
+        delete fileTree("src/main/java/dev/x341/mrw/mod")
+        delete fileTree("src/main/resources/assets")
+        delete fileTree("src/main/resources/data")
+
+        copy {
+            from "../fabric/src/main/java/dev/x341/mrw/mod"
+            into "src/main/java/dev/x341/mrw/mod"
+        }
+        copy {
+            from "../fabric/src/main/resources/assets"
+            into "src/main/resources/assets"
+        }
+        copy {
+            from "../fabric/src/main/resources/data"
+            into "src/main/resources/data"
+        }
+    }
+}
+
+compileJava.dependsOn "setupFiles"
+processResources.dependsOn "setupFiles"
+sourcesJar.dependsOn "setupFiles"
+
+jar {
+    archiveClassifier = "slim"
+}
+
+shadowJar {
+    archiveClassifier = ""
+    finalizedBy "reobfShadowJar"
+    exclude excludeAssets == "true" ? "assets" : "abc123"
+}
+
+reobf {
+    shadowJar {}
+}
+
+assemble.dependsOn shadowJar
+
+// Collect the finished jar into <root>/build/release next to the Fabric one.
+tasks.register("moveBuild") {
+    doLast {
+        delete fileTree("${rootDir}/build/release").matching {
+            include "**/*-forge-*"
+        }
+        copy {
+            from shadowJar.archiveFile
+            into "${rootDir}/build/release"
+        }
+    }
+}
+tasks.named("build") { finalizedBy "moveBuild" }

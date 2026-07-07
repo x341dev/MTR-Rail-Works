@@ -1,0 +1,19 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.x341.mrw.mod.mixin",
+  "compatibilityLevel": "${mixin_compat}",
+  "refmap": "mrw.refmap.json",
+  "mixins": [
+    "ItemNodeModifierBaseInvoker",
+    "ItemNodeModifierSelectableBlockBaseAccessor",
+    "ItemNodeModifierSelectableBlockBaseMixin",
+    "RailActionAccessor",
+    "RailActionMixin",
+    "RailActionModuleAccessor",
+    "RailActionModuleMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

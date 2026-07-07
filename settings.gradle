@@ -1,0 +1,27 @@
+pluginManagement {
+    repositories {
+        maven {
+            name = "Fabric"
+            url = "https://maven.fabricmc.net/"
+        }
+        maven {
+            name = "MinecraftForge"
+            url = "https://maven.minecraftforge.net/"
+        }
+        maven {
+            name = "Sponge"
+            url = "https://repo.spongepowered.org/repository/maven-public/"
+        }
+        gradlePluginPortal()
+    }
+}
+
+plugins {
+    // Auto-provisions the Java toolchains requested per Minecraft version (16/17/...).
+    id "org.gradle.toolchains.foojay-resolver-convention" version "1.0.0"
+}
+
+rootProject.name = "mtr-rail-works"
+
+include "fabric"
+include "forge"
