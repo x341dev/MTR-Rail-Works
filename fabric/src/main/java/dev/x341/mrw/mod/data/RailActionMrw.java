@@ -67,7 +67,7 @@ public class RailActionMrw {
 		final double yaw = Math.toRadians(serverPlayerEntity.getYaw(1));
 		final double forwardX = -Math.sin(yaw);
 		final double forwardZ = Math.cos(yaw);
-		return (pos2.x - pos1.x) * forwardX + (pos2.z - pos1.z) * forwardZ < 0;
+		return (pos2.x - pos1.x) * forwardX + (pos2.z - pos1.z) * forwardZ > 0;
 	}
 
 	public String getDescription() {
