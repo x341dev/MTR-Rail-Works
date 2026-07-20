@@ -20,8 +20,22 @@ import org.mtr.mapping.holder.Screen;
  */
 public final class RailWorkerClientHandler {
 
+	// Forge renamed InputEvent.MouseScrollEvent to InputEvent.MouseScrollingEvent between 1.18.2
+	// and 1.19.2; both extend the same Event base and are @Cancelable, so the subscriber method is
+	// duplicated per name here and delegates to the shared, version-independent handler below.
+	#if MC_VERSION >= "11902"
 	@SubscribeEvent
 	public void onScroll(InputEvent.MouseScrollingEvent event) {
+		handleScroll(event);
+	}
+	#else
+	@SubscribeEvent
+	public void onScroll(InputEvent.MouseScrollEvent event) {
+		handleScroll(event);
+	}
+	#endif
+
+	private void handleScroll(InputEvent event) {
 		final LocalPlayer rawPlayer = Minecraft.getInstance().player;
 		if (rawPlayer == null || !Screen.hasControlDown()) {
 			return;
