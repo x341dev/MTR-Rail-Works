@@ -21,9 +21,10 @@ Two package families matter:
   `final` bridge method under the loader's real (obfuscated/intermediary) name that forwards into
   your override — you never call or override the bridge method itself.
 
-MTR itself is closed-source (decompiled-only, no sources jar). When you need an exact method
-signature or constructor argument order that isn't already used elsewhere in this codebase, see
-[Working against a closed-source dependency](#working-against-a-closed-source-dependency).
+MTR itself is open source, but the jars this addon depends on (pulled from Modrinth's Maven — see
+[setup-and-building.md](setup-and-building.md)) don't ship a sources jar. When you need an exact
+method signature or constructor argument order that isn't already used elsewhere in this codebase,
+see [Working against MTR's own source](#working-against-mtrs-own-source).
 
 ## The Fabric / Forge split
 
@@ -88,9 +89,9 @@ graying-out of inactive branches.
   `REGISTRY.registerPacket(Class, ConstructorRef)`. See `PacketApplyRailWorkerBuild` for the
   fullest example (client → server, with an optional/nullable second payload).
 - **Rail building** — two parallel systems:
-  - MTR's own native `org.mtr.mod.data.RailAction` / `RailActionModule` (decompiled-only) covers
-    bridge floors (`markRailForBridge`) and tunnel excavation (`markRailForTunnel`, air only, no
-    floor material placed).
+  - MTR's own native `org.mtr.mod.data.RailAction` / `RailActionModule` covers bridge floors
+    (`markRailForBridge`) and tunnel excavation (`markRailForTunnel`, air only, no floor material
+    placed).
   - This mod's own `RailActionMrw` / `RailActionModuleMrw` / `RailActionType` /
     `RailActionBatchTracker` reimplements wall-building, since MTR's native version can't do
     bridge walls, single-sided walls, or Rail Worker's walls/ceiling mode.
@@ -120,10 +121,21 @@ graying-out of inactive branches.
   detail (wall-side resolution inputs/outputs, Rail Worker build parameters) is written to
   `Init.LOGGER` — check the server log/console, not chat.
 
-## Working against a closed-source dependency
+## Working against MTR's own source
 
-MTR has no sources jar. When you need to know an exact signature this codebase doesn't already
-use, decompile the actual cached jar with `javap` rather than guessing:
+MTR is open source: [Minecraft-Transit-Railway/Minecraft-Transit-Railway](https://github.com/Minecraft-Transit-Railway/Minecraft-Transit-Railway/tree/master)
+on GitHub, with its own developer documentation on the
+[MTR wiki](https://wiki.minecrafttransitrailway.com/mtr:development). That's the first place to
+look when you need to understand *why* something behaves a certain way, not just its signature —
+reading the real source beats guessing from bytecode every time it's available. Match the branch
+or tag to the `mtrVersion` this addon is pinned to (see `gradle.properties`) before trusting what
+you read, since `master` can be ahead of the version actually on the classpath.
+
+The one thing GitHub source can't give you is a guarantee that what you're reading matches the
+*exact* jar this build resolves — Modrinth's Maven publishes jars without a sources jar attached,
+so for anything version-sensitive (an exact method signature, a constructor argument order, which
+overload actually exists on the jar in `~/.gradle`), decompile the real cached jar with `javap`
+rather than trusting the GitHub source alone:
 
 ```
 # Find the cached jar (both loader flavors exist per Minecraft version)
