@@ -3,8 +3,10 @@
   "id": "mrw",
   "version": "${version}",
   "name": "MTR Rail Works",
-  "description": "",
-  "authors": [],
+  "description": "Minecraft Transit Railway addon with extra rail construction tools.",
+  "authors": [
+    "x341dev"
+  ],
   "contact": {},
   "license": "MIT",
   "icon": "assets/mrw/icon.png",

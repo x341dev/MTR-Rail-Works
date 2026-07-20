@@ -1,33 +1,31 @@
 name: Build
-on: [ workflow_dispatch, push ]
+on: [ push, workflow_dispatch ]
 
 jobs:
   build:
     strategy:
       fail-fast: false
       matrix:
-        minecraft: [ 1.16.5, 1.17.1, 1.18.2, 1.19.2, 1.20.1, 1.20.4 ]
+        minecraft: [ 1.17.1, 1.18.2, 1.19.2, 1.19.4, 1.20.1, 1.20.4 ]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@main
-      - name: Validate gradle wrapper
-        uses: gradle/wrapper-validation-action@main
+        uses: actions/checkout@v4
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
       - name: Setup JDK 21
-        uses: actions/setup-java
+        uses: actions/setup-java@v4
         with:
           java-version: 21
-          distribution: 'zulu'
-      - name: Prepare gradle wrapper
+          distribution: zulu
+          cache: gradle
+      - name: Prepare Gradle wrapper
         run: chmod +x ./gradlew
-      - name: Setup Fabric files
-        run: ./gradlew fabric:setupFiles -PminecraftVersion="${{ matix.minecraft }}"
-      - name: Setup Forge files
-        run: ./gradlew forge:setupFiles -PminecraftVersion=
-      - name: Build ${{ matix.minecraft }}
-        run: ./gradlew build -PminecraftVersion="${{ matix.minecraft }}"
-      - name: Build ${{ matix.minecraft }} (server)
-        run: ./gradlew build -PminecraftVersion="${{ matix.minecraft }}" -PexludeAssets=true
-
-
-
+      - name: Build ${{ matrix.minecraft }}
+        run: ./gradlew build "-PminecraftVersion=${{ matrix.minecraft }}"
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mtr-rail-works-${{ matrix.minecraft }}
+          path: build/release/*.jar
+          if-no-files-found: error

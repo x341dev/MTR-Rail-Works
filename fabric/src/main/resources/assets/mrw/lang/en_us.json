@@ -1,0 +1,21 @@
+{
+  "item.mrw.bridge_wall_creator_1_3": "Bridge Wall Creator",
+  "item.mrw.bridge_wall_creator_1_5": "Bridge Wall Creator",
+  "item.mrw.bridge_wall_creator_1_7": "Bridge Wall Creator",
+  "item.mrw.bridge_wall_creator_1_9": "Bridge Wall Creator",
+  "item.mrw.bridge_wall_creator_2_3": "Bridge Wall Creator",
+  "item.mrw.bridge_wall_creator_2_5": "Bridge Wall Creator",
+  "item.mrw.bridge_wall_creator_2_7": "Bridge Wall Creator",
+  "item.mrw.bridge_wall_creator_2_9": "Bridge Wall Creator",
+  "item.mrw.bridge_wall_creator_3_3": "Bridge Wall Creator",
+  "item.mrw.bridge_wall_creator_3_5": "Bridge Wall Creator",
+  "item.mrw.bridge_wall_creator_3_7": "Bridge Wall Creator",
+  "item.mrw.bridge_wall_creator_3_9": "Bridge Wall Creator",
+  "gui.mrw.percentage_complete_bridge_wall": "Building Bridge Wall (%s%%)",
+  "gui.mrw.rail_action_bridge_wall": "Bridge Wall by %s (%s blocks long, %s)",
+  "tooltip.mrw.wall_side": "Side: %s",
+  "tooltip.mrw.wall_side_both": "Both Sides",
+  "tooltip.mrw.wall_side_left": "Left Side",
+  "tooltip.mrw.wall_side_right": "Right Side",
+  "tooltip.mrw.wall_side_hint": "Hold %s and use in the air to switch sides"
+}

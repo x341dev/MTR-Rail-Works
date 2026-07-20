@@ -1,6 +1,7 @@
 package dev.x341.mrw.mod.mixin;
 
 import org.mtr.core.data.Rail;
+import org.mtr.mapping.holder.BlockState;
 import org.mtr.mapping.holder.ItemStack;
 import org.mtr.mapping.holder.ServerPlayerEntity;
 import org.mtr.mod.item.ItemNodeModifierSelectableBlockBase;
@@ -22,4 +23,7 @@ public interface ItemNodeModifierSelectableBlockBaseAccessor {
 
     @Invoker("onConnect")
     void mrw$invokeOnConnect(Rail rail, ServerPlayerEntity serverPlayerEntity, ItemStack itemStack, int radius, int height);
+
+    @Invoker("getSavedState")
+    BlockState mrw$invokeGetSavedState(ItemStack itemStack);
 }

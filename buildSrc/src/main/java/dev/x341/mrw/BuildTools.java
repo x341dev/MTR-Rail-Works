@@ -55,7 +55,7 @@ public final class BuildTools {
 
     /**
      * The Minecraft version collapsed into a fixed-width digit string, e.g. 1.20.1 → "12001",
-     * 1.16.5 → "11605". This is the value handed to the Manifold preprocessor as
+     * 1.17.1 → "11701". This is the value handed to the Manifold preprocessor as
      * {@code MC_VERSION}; because every value has the same length, lexicographic string
      * comparison ({@code #if MC_VERSION >= "11903"}) matches numeric ordering.
      */
@@ -146,7 +146,6 @@ public final class BuildTools {
 
     static {
         //          MC        yarn                     loader      fabric-api          modmenu    forge     java pack
-        CONFIGS.put("1.16.5", new VersionConfig("1.16.5+build.10", "0.16.14", "0.42.0+1.16",   "1.16.23", "36.2.42", 8,  6));
         CONFIGS.put("1.17.1", new VersionConfig("1.17.1+build.65", "0.16.14", "0.46.1+1.17",   "2.0.17",  "37.1.1",  16, 7));
         CONFIGS.put("1.18.2", new VersionConfig("1.18.2+build.4",  "0.16.14", "0.77.0+1.18.2", "3.2.5",   "40.2.21", 17, 8));
         CONFIGS.put("1.19.2", new VersionConfig("1.19.2+build.28", "0.16.14", "0.77.0+1.19.2", "4.1.2",   "43.3.13", 17, 9));

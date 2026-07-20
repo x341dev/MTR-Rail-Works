@@ -1,6 +1,8 @@
 package dev.x341.mrw.mod.mixin;
 
 import dev.x341.mrw.mod.client.InitClient;
+import dev.x341.mrw.mod.data.WallSide;
+import dev.x341.mrw.mod.item.ItemBridgeWallCreator;
 import dev.x341.mrw.mod.packet.PacketApplyRailAction;
 import org.mtr.core.data.Position;
 import org.mtr.core.data.TransportMode;
@@ -12,24 +14,34 @@ import org.mtr.mapping.holder.ActionResult;
 import org.mtr.mapping.holder.BlockPos;
 import org.mtr.mapping.holder.BlockState;
 import org.mtr.mapping.holder.CompoundTag;
+import org.mtr.mapping.holder.Hand;
+import org.mtr.mapping.holder.HitResultType;
 import org.mtr.mapping.holder.ItemStack;
 import org.mtr.mapping.holder.ItemUsageContext;
+import org.mtr.mapping.holder.MutableText;
 import org.mtr.mapping.holder.PlayerEntity;
 import org.mtr.mapping.holder.ServerPlayerEntity;
+import org.mtr.mapping.holder.Text;
+import org.mtr.mapping.holder.TextFormatting;
+import org.mtr.mapping.holder.TooltipContext;
 import org.mtr.mapping.holder.World;
+import org.mtr.mapping.mapper.TextHelper;
 import org.mtr.mod.Init;
 import org.mtr.mod.client.MinecraftClientData;
 import org.mtr.mod.generated.lang.TranslationProvider;
 import org.mtr.mod.item.ItemBlockClickingBase;
 import org.mtr.mod.item.ItemNodeModifierBase;
 import org.mtr.mod.item.ItemNodeModifierSelectableBlockBase;
+import org.mtr.mod.item.ItemTunnelWallCreator;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import javax.annotation.Nullable;
+import java.util.List;
 
 
 @Mixin(value = ItemNodeModifierSelectableBlockBase.class, remap = false)
@@ -83,6 +95,37 @@ public abstract class ItemNodeModifierSelectableBlockBaseMixin {
         ci.cancel();
     }
 
+    /**
+     * Sneak-using a wall creator in the air cycles the wall side mode (both, left, right).
+     * This overrides the empty {@code ItemExtension#useWithoutResult} hook; the raycast guard
+     * stops the toggle when a block click (material selection) falls through to the use event.
+     */
+    public void useWithoutResult(World world, PlayerEntity playerEntity, Hand hand) {
+        if (!mrw$hasWallSideMode() || !playerEntity.isSneaking() || playerEntity.raycast(5, 1, false).getType() != HitResultType.MISS) {
+            return;
+        }
+        if (!world.isClient()) {
+            final CompoundTag compoundTag = playerEntity.getStackInHand(hand).getOrCreateTag();
+            final int wallSide = (compoundTag.getInt(WallSide.TAG_WALL_SIDE) + 1) % 3;
+            compoundTag.putInt(WallSide.TAG_WALL_SIDE, wallSide);
+            playerEntity.sendMessage(new Text(TextHelper.translatable("tooltip.mrw.wall_side", TextHelper.translatable(WallSide.getTranslationKey(wallSide)).data).data), true);
+        }
+    }
+
+    @Inject(method = "addTooltips", at = @At("TAIL"))
+    private void mrw$addWallSideTooltip(ItemStack stack, @Nullable World world, List<MutableText> tooltip, TooltipContext options, CallbackInfo ci) {
+        if (mrw$hasWallSideMode()) {
+            final int wallSide = stack.getOrCreateTag().getInt(WallSide.TAG_WALL_SIDE);
+            // Highlight single-side mode so an accidental toggle is easy to spot
+            tooltip.add(TextHelper.translatable("tooltip.mrw.wall_side", TextHelper.translatable(WallSide.getTranslationKey(wallSide)).data).formatted(wallSide == WallSide.BOTH ? TextFormatting.GRAY : TextFormatting.AQUA));
+            tooltip.add(TextHelper.translatable("tooltip.mrw.wall_side_hint", org.mtr.mod.InitClient.getShiftText()).formatted(TextFormatting.GRAY).formatted(TextFormatting.ITALIC));
+        }
+    }
+
+    @Unique
+    private boolean mrw$hasWallSideMode() {
+        return (Object) this instanceof ItemTunnelWallCreator || (Object) this instanceof ItemBridgeWallCreator;
+    }
 
     @Nullable
     private static ObjectArrayList<ObjectObjectImmutablePair<BlockPos, BlockPos>> findRailPath(BlockPos startBlockPos, BlockPos endBlockPos) {

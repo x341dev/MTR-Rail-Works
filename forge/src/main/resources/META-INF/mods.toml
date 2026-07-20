@@ -6,7 +6,7 @@ license="MIT"
 modId="mrw"
 version="${version}"
 displayName="MTR Rail Works"
-description=""
+description="Minecraft Transit Railway addon with extra rail construction tools."
 
 [[dependencies.mrw]]
     modId="forge"
@@ -26,5 +26,5 @@ description=""
     modId="mtr"
     mandatory=true
     versionRange="[4.0.0,)"
-    ordering="NONE"
+    ordering="AFTER"
     side="BOTH"

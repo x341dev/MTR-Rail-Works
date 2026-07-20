@@ -50,10 +50,13 @@ subprojects {
     //     #if LOADER == "forge"
     // MC_VERSION is the fixed-width merged version string ("12001"), so string comparison
     // matches numeric ordering. Requires the "Manifold" IntelliJ plugin for IDE support.
-    tasks.withType(JavaCompile).configureEach {
-        options.encoding = "UTF-8"
-        options.release = tools.javaRelease
-        options.compilerArgs += [
+    // Eager .forEach (not .configureEach): ForgeGradle registers its own JavaCompile task later
+    // to recompile Minecraft itself, and these args must not leak into it ("plug-in not found:
+    // Manifold" / "invalid flag: --release").
+    tasks.withType(JavaCompile).forEach {
+        it.options.encoding = "UTF-8"
+        it.options.release = tools.javaRelease
+        it.options.compilerArgs += [
                 "-Xplugin:Manifold",
                 "-AMC_VERSION=${tools.mergedMinecraftVersion}",
                 "-ALOADER=${project.name}"

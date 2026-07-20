@@ -1,8 +1,17 @@
 package dev.x341.mrw.mod;
 
+import dev.x341.mrw.mod.data.RailActionModuleMrw;
 import dev.x341.mrw.mod.packet.PacketApplyRailAction;
+import dev.x341.mrw.mod.registry.Items;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.mtr.libraries.it.unimi.dsi.fastutil.objects.Object2ObjectArrayMap;
 import org.mtr.mapping.holder.Identifier;
+import org.mtr.mapping.holder.ServerWorld;
+import org.mtr.mapping.mapper.MinecraftServerHelper;
 import org.mtr.mapping.registry.Registry;
+
+import java.util.function.Consumer;
 
 /**
  * Shared, loader-agnostic entry point. Written once in the Fabric module and copied verbatim
@@ -12,19 +21,41 @@ import org.mtr.mapping.registry.Registry;
  */
 public final class Init {
 
-    public static final String MOD_ID = "mrw";
-    public static final Registry REGISTRY = new Registry();
+	public static final String MOD_ID = "mrw";
+	public static final Registry REGISTRY = new Registry();
 
-    private Init() {
-    }
+	public static final Logger LOGGER = LogManager.getLogger("MTRRailWorks");
 
-    /** Called by each loader's bootstrap ({@code MRWFabric} / {@code MRWForge}). */
-    public static void init() {
-        // Register blocks, items, block entities, entities, particles, sounds, packets and
-        // commands on REGISTRY here, e.g.:
-        //   REGISTRY.registerItem(new Identifier(MOD_ID, "example"), ExampleItem::new);
-        REGISTRY.setupPackets(new Identifier(MOD_ID, "packet"));
-        REGISTRY.registerPacket(PacketApplyRailAction.class, PacketApplyRailAction::new);
-        REGISTRY.init();
-    }
+	private static final Object2ObjectArrayMap<ServerWorld, RailActionModuleMrw> RAIL_ACTION_MODULES = new Object2ObjectArrayMap<>();
+
+	public static void init() {
+		LOGGER.info("Hello from MRW OwO");
+
+		Items.init();
+
+		REGISTRY.setupPackets(new Identifier(MOD_ID, "packet"));
+		REGISTRY.registerPacket(PacketApplyRailAction.class, PacketApplyRailAction::new);
+
+		REGISTRY.eventRegistry.registerServerStarted(minecraftServer -> {
+			RAIL_ACTION_MODULES.clear();
+			MinecraftServerHelper.iterateWorlds(minecraftServer, serverWorld -> RAIL_ACTION_MODULES.put(serverWorld, new RailActionModuleMrw(serverWorld)));
+		});
+
+		REGISTRY.eventRegistry.registerEndWorldTick(serverWorld -> {
+			final RailActionModuleMrw railActionModule = RAIL_ACTION_MODULES.get(serverWorld);
+			if (railActionModule != null) {
+				railActionModule.tick();
+			}
+		});
+
+		REGISTRY.init();
+	}
+
+	public static void getRailActionModule(ServerWorld serverWorld, Consumer<RailActionModuleMrw> consumer) {
+		final RailActionModuleMrw railActionModule = RAIL_ACTION_MODULES.get(serverWorld);
+		if (railActionModule != null) {
+			consumer.accept(railActionModule);
+		}
+	}
+
 }

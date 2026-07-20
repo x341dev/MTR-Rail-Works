@@ -1,5 +1,7 @@
 plugins {
-    id "net.minecraftforge.gradle" version "6.+"
+    // Pinned like JCM: 6.0.54 breaks MCP artifact generation on Gradle 8.14
+    // ("project services has been closed" resolving the toolchain).
+    id "net.minecraftforge.gradle" version "6.0.36"
     id "org.spongepowered.mixin" version "0.7-SNAPSHOT"
 }
 

@@ -7,6 +7,7 @@
     "ItemNodeModifierBaseInvoker",
     "ItemNodeModifierSelectableBlockBaseAccessor",
     "ItemNodeModifierSelectableBlockBaseMixin",
+    "ItemTunnelWallCreatorMixin",
     "RailActionAccessor",
     "RailActionMixin",
     "RailActionModuleAccessor",
