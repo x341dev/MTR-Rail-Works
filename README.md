@@ -1,7 +1,8 @@
-# MTR Rail Works
-
 [![Version](https://img.shields.io/github/v/release/x341dev/MTR-Rail-Works?include_prereleases&sort=semver&label=version)](https://github.com/x341dev/MTR-Rail-Works/releases)
 [![Build](https://img.shields.io/github/actions/workflow/status/x341dev/MTR-Rail-Works/nightly.yml?label=build)](https://github.com/x341dev/MTR-Rail-Works/actions/workflows/nightly.yml)
+
+# MTR Rail Works
+
 [![Supports Fabric](https://raw.githubusercontent.com/intergrav/devins-badges/v3/assets/cozy/supported/fabric_vector.svg)](https://fabricmc.net/)
 [![Supports Forge](https://raw.githubusercontent.com/intergrav/devins-badges/v3/assets/cozy/supported/forge_vector.svg)](https://files.minecraftforge.net/)
 
