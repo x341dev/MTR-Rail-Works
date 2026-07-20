@@ -116,9 +116,9 @@ public abstract class ItemNodeModifierSelectableBlockBaseMixin {
     private void mrw$addWallSideTooltip(ItemStack stack, @Nullable World world, List<MutableText> tooltip, TooltipContext options, CallbackInfo ci) {
         if (mrw$hasWallSideMode()) {
             final int wallSide = stack.getOrCreateTag().getInt(WallSide.TAG_WALL_SIDE);
+            tooltip.add(TextHelper.translatable("tooltip.mrw.wall_side_hint", org.mtr.mod.InitClient.getShiftText()).formatted(TextFormatting.GRAY).formatted(TextFormatting.ITALIC));
             // Highlight single-side mode so an accidental toggle is easy to spot
             tooltip.add(TextHelper.translatable("tooltip.mrw.wall_side", TextHelper.translatable(WallSide.getTranslationKey(wallSide)).data).formatted(wallSide == WallSide.BOTH ? TextFormatting.GRAY : TextFormatting.AQUA));
-            tooltip.add(TextHelper.translatable("tooltip.mrw.wall_side_hint", org.mtr.mod.InitClient.getShiftText()).formatted(TextFormatting.GRAY).formatted(TextFormatting.ITALIC));
         }
     }
 

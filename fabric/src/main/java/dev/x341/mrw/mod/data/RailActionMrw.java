@@ -31,6 +31,7 @@ public class RailActionMrw {
 	private final int radius;
 	private final int height;
 	private final int wallSide;
+	private final boolean invertWallSide;
 	private final double length;
 	private final BlockState state;
 	private final ObjectOpenHashSet<BlockPos> blacklistedPositions = new ObjectOpenHashSet<>();
@@ -47,10 +48,26 @@ public class RailActionMrw {
 		this.radius = radius;
 		this.height = height;
 		this.wallSide = wallSide;
+		this.invertWallSide = isRailAgainstPlayerFacing(serverPlayerEntity, rail);
 		this.state = state;
 		length = rail.railMath.getLength();
 		distance = 0;
 		RailActionBatchTracker.onEnqueue(uuid);
+	}
+
+	/**
+	 * The rail's own parameterization runs from whichever node happens to be its internal start,
+	 * which has no relation to how the player was facing when they connected the two nodes. Without
+	 * this check, "left"/"right" would depend on that arbitrary internal direction instead of the
+	 * player's point of view, flipping unpredictably from one wall action to the next.
+	 */
+	private static boolean isRailAgainstPlayerFacing(ServerPlayerEntity serverPlayerEntity, Rail rail) {
+		final Vector pos1 = rail.railMath.getPosition(0, false);
+		final Vector pos2 = rail.railMath.getPosition(Math.min(INCREMENT, rail.railMath.getLength()), false);
+		final double yaw = Math.toRadians(serverPlayerEntity.getYaw(1));
+		final double forwardX = -Math.sin(yaw);
+		final double forwardZ = Math.cos(yaw);
+		return (pos2.x - pos1.x) * forwardX + (pos2.z - pos1.z) * forwardZ > 0;
 	}
 
 	public String getDescription() {
@@ -98,8 +115,10 @@ public class RailActionMrw {
 				final Vector editPos = pos1.add(vec3.multiply(x, 0, x));
 				final boolean wholeNumber = Math.floor(editPos.y) == Math.ceil(editPos.y);
 				final boolean isEdge = Math.abs(x) > radius - INCREMENT || radius == 0;
-				// wallSide restricts building to one edge of the rail (LEFT = negative x offset)
-				final boolean isSelectedEdge = wallSide == WallSide.BOTH || radius == 0 || (wallSide == WallSide.LEFT ? x < 0 : x > 0);
+				// wallSide restricts building to one edge of the rail (LEFT = negative x offset,
+				// flipped by invertWallSide to keep left/right matching the player's point of view)
+				final boolean useNegativeSide = (wallSide == WallSide.LEFT) != invertWallSide;
+				final boolean isSelectedEdge = wallSide == WallSide.BOTH || radius == 0 || (useNegativeSide ? x < 0 : x > 0);
 				if (includeMiddle || (isEdge && isSelectedEdge)) {
 					for (int y = 0; y <= height; y++) {
 						if (y < height || !wholeNumber || (height == 0 && radius == 0)) {
