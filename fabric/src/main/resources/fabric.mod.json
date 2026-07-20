@@ -24,6 +24,10 @@
     {
       "config": "mrw.client.mixins.json",
       "environment": "client"
+    },
+    {
+      "config": "mrw.fabric.mixins.json",
+      "environment": "client"
     }
   ],
   "accessWidener": "mrw.accesswidener",

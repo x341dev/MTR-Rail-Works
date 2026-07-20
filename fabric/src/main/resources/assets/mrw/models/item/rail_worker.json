@@ -1,0 +1,20 @@
+{
+	"parent": "item/generated",
+	"textures": {
+		"layer0": "mrw:item/rail_worker"
+	},
+	"overrides": [
+		{
+			"predicate": {
+				"mrw:selected": 0.5
+			},
+			"model": "mrw:item/rail_worker_1"
+		},
+		{
+			"predicate": {
+				"mrw:selected": 1.0
+			},
+			"model": "mrw:item/rail_worker_2"
+		}
+	]
+}

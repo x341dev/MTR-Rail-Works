@@ -2,6 +2,9 @@ package dev.x341.mrw.mod;
 
 import dev.x341.mrw.mod.data.RailActionModuleMrw;
 import dev.x341.mrw.mod.packet.PacketApplyRailAction;
+import dev.x341.mrw.mod.packet.PacketApplyRailWorkerBuild;
+import dev.x341.mrw.mod.packet.PacketCycleRailWorkerTargetSlot;
+import dev.x341.mrw.mod.packet.PacketUpdateRailWorkerConfig;
 import dev.x341.mrw.mod.registry.Items;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -35,6 +38,23 @@ public final class Init {
 
 		REGISTRY.setupPackets(new Identifier(MOD_ID, "packet"));
 		REGISTRY.registerPacket(PacketApplyRailAction.class, PacketApplyRailAction::new);
+		REGISTRY.registerPacket(PacketApplyRailWorkerBuild.class, PacketApplyRailWorkerBuild::new);
+		REGISTRY.registerPacket(PacketUpdateRailWorkerConfig.class, PacketUpdateRailWorkerConfig::new);
+		REGISTRY.registerPacket(PacketCycleRailWorkerTargetSlot.class, PacketCycleRailWorkerTargetSlot::new);
+
+		REGISTRY.registerCommand("mrw", commandBuilder -> commandBuilder.then("debug", debugBuilder -> {
+			debugBuilder.permissionLevel(2);
+			debugBuilder.then("on", onBuilder -> onBuilder.executes(context -> {
+				MrwDebug.setEnabled(true);
+				context.sendSuccess("command.mrw.debug_on", true);
+				return 1;
+			}));
+			debugBuilder.then("off", offBuilder -> offBuilder.executes(context -> {
+				MrwDebug.setEnabled(false);
+				context.sendSuccess("command.mrw.debug_off", true);
+				return 1;
+			}));
+		}));
 
 		REGISTRY.eventRegistry.registerServerStarted(minecraftServer -> {
 			RAIL_ACTION_MODULES.clear();
