@@ -27,7 +27,6 @@ import org.mtr.mapping.holder.TextFormatting;
 import org.mtr.mapping.holder.TooltipContext;
 import org.mtr.mapping.holder.World;
 import org.mtr.mapping.mapper.TextHelper;
-import org.mtr.mod.block.BlockNode;
 import org.mtr.mod.generated.lang.TranslationProvider;
 
 import javax.annotation.Nullable;
@@ -48,7 +47,11 @@ import java.util.List;
  * it does not connect, is treated as pair 2's start; the 3rd click then completes pair 1's end and
  * the 4th completes pair 2's end, firing both in one batched packet. This click order (start,
  * start, end, end) matches walking along two parallel rails and clicking both starts before
- * walking to the far end, rather than finishing one pair before starting the next.
+ * walking to the far end, rather than finishing one pair before starting the next. Sneak + use on
+ * a node ({@link #onSneakNodeClick}) bypasses the automatic BFS-connectivity decision and forces
+ * that click to become pair 2's start outright, for the case where a pair 1/pair 2 candidate
+ * happen to be technically connected somewhere in the network but two independent segments are
+ * wanted anyway.
  */
 public class ItemRailWorker extends ItemNodeModifierSelectableBlockBase {
 
@@ -114,6 +117,7 @@ public class ItemRailWorker extends ItemNodeModifierSelectableBlockBase {
 		).getString()).formatted(TextFormatting.GRAY));
 		tooltip.add(TextHelper.translatable("tooltip.mrw.rail_worker_size", getWidth(tag), getHeight(tag)).formatted(TextFormatting.GRAY));
 		tooltip.add(TextHelper.translatable("tooltip.mrw.rail_worker_hint_save").formatted(TextFormatting.GRAY).formatted(TextFormatting.ITALIC));
+		tooltip.add(TextHelper.translatable("tooltip.mrw.rail_worker_hint_force_pair2").formatted(TextFormatting.GRAY).formatted(TextFormatting.ITALIC));
 		tooltip.add(TextHelper.translatable("tooltip.mrw.rail_worker_hint_scroll").formatted(TextFormatting.GRAY).formatted(TextFormatting.ITALIC));
 		tooltip.add(TextHelper.translatable("tooltip.mrw.rail_worker_hint_configure", org.mtr.mod.InitClient.getShiftText()).formatted(TextFormatting.GRAY).formatted(TextFormatting.ITALIC));
 	}
@@ -122,9 +126,6 @@ public class ItemRailWorker extends ItemNodeModifierSelectableBlockBase {
 	protected void saveOrClearBlock(ItemUsageContext context, PlayerEntity player) {
 		final BlockPos blockPos = context.getBlockPos();
 		final BlockState clickedState = context.getWorld().getBlockState(blockPos);
-		if (clickedState.getBlock().data instanceof BlockNode) {
-			return;
-		}
 
 		final CompoundTag tag = context.getStack().getOrCreateTag();
 		final int targetSlot = tag.getInt(TAG_TARGET_SLOT);
@@ -206,6 +207,33 @@ public class ItemRailWorker extends ItemNodeModifierSelectableBlockBase {
 			default:
 				resetClickState(tag);
 				break;
+		}
+	}
+
+	/**
+	 * Sneak + use on a node forces that click to become (or replace) pair 2's start, skipping the
+	 * automatic BFS-connectivity check {@link #onNodeClick} uses to decide single-pair vs.
+	 * dual-pair — useful when a pair 1/pair 2 candidate happen to be technically connected
+	 * somewhere in the network but the player wants two independent segments anyway. Only
+	 * meaningful once pair 1 has a start (stage &gt;= 1); before that there is no "second" pair yet,
+	 * so the sneak modifier is ignored and this behaves like a normal first click.
+	 */
+	@Override
+	protected void onSneakNodeClick(ItemUsageContext context, BlockPos clicked) {
+		final CompoundTag tag = context.getStack().getOrCreateTag();
+		final int stage = tag.getInt(TAG_CLICK_STAGE);
+		if (stage == 0) {
+			onNodeClick(context, clicked);
+			return;
+		}
+
+		tag.putLong(TAG_PAIR2_START, clicked.asLong());
+		tag.putInt(TAG_CLICK_STAGE, 2);
+		debugLog("sneak-click at " + clicked + " (stage " + stage + "->2): pair2Start forced");
+
+		final PlayerEntity player = context.getPlayer();
+		if (player != null) {
+			player.sendMessage(new Text(TextHelper.translatable("tooltip.mrw.rail_worker_pair2_forced", clicked.toShortString()).data), true);
 		}
 	}
 
