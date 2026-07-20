@@ -29,7 +29,6 @@ jobs:
         uses: googleapis/release-please-action@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          release-type: java
 
   build-and-pack:
     name: Build & Pack (MC ${{ matrix.minecraft_version }})
