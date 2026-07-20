@@ -114,12 +114,17 @@ jobs:
     if: ${{ needs.release-please.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
       - name: Download Artifact
         uses: actions/download-artifact@v4
         with:
           name: mtr-rail-works-jars
           path: ./ready-libs
-
+          
       - name: Create Pre-Release
         if: ${{ github.event_name == 'workflow_dispatch' }}
         env:
