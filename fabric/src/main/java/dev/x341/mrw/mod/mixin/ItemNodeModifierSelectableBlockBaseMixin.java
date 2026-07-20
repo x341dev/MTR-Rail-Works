@@ -1,13 +1,12 @@
 package dev.x341.mrw.mod.mixin;
 
 import dev.x341.mrw.mod.client.InitClient;
+import dev.x341.mrw.mod.client.RailPathFinder;
 import dev.x341.mrw.mod.data.WallSide;
 import dev.x341.mrw.mod.item.ItemBridgeWallCreator;
 import dev.x341.mrw.mod.packet.PacketApplyRailAction;
-import org.mtr.core.data.Position;
 import org.mtr.core.data.TransportMode;
 import org.mtr.core.tool.Angle;
-import org.mtr.libraries.it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import org.mtr.libraries.it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.mtr.libraries.it.unimi.dsi.fastutil.objects.ObjectObjectImmutablePair;
 import org.mtr.mapping.holder.ActionResult;
@@ -26,8 +25,6 @@ import org.mtr.mapping.holder.TextFormatting;
 import org.mtr.mapping.holder.TooltipContext;
 import org.mtr.mapping.holder.World;
 import org.mtr.mapping.mapper.TextHelper;
-import org.mtr.mod.Init;
-import org.mtr.mod.client.MinecraftClientData;
 import org.mtr.mod.generated.lang.TranslationProvider;
 import org.mtr.mod.item.ItemBlockClickingBase;
 import org.mtr.mod.item.ItemNodeModifierBase;
@@ -64,7 +61,7 @@ public abstract class ItemNodeModifierSelectableBlockBaseMixin {
         }
 
         final BlockPos startPos = BlockPos.fromLong(compoundTag.getLong(ItemBlockClickingBase.TAG_POS));
-        final ObjectArrayList<ObjectObjectImmutablePair<BlockPos, BlockPos>> path = findRailPath(startPos, context.getBlockPos());
+        final ObjectArrayList<ObjectObjectImmutablePair<BlockPos, BlockPos>> path = RailPathFinder.findPath(startPos, context.getBlockPos());
         if (path == null) {
             // No route between the two nodes; the server-side error message is suppressed by
             // mrw$connectWithoutError below, so show it locally instead
@@ -125,49 +122,5 @@ public abstract class ItemNodeModifierSelectableBlockBaseMixin {
     @Unique
     private boolean mrw$hasWallSideMode() {
         return (Object) this instanceof ItemTunnelWallCreator || (Object) this instanceof ItemBridgeWallCreator;
-    }
-
-    @Nullable
-    private static ObjectArrayList<ObjectObjectImmutablePair<BlockPos, BlockPos>> findRailPath(BlockPos startBlockPos, BlockPos endBlockPos) {
-        final Position startPosition = Init.blockPosToPosition(startBlockPos);
-        final Position endPosition = Init.blockPosToPosition(endBlockPos);
-
-        if (!MinecraftClientData.getInstance().positionsToRail.containsKey(startPosition)) {
-            return null;
-        }
-
-        final Object2ObjectOpenHashMap<Position, Position> parentMap = new Object2ObjectOpenHashMap<>();
-        final ObjectArrayList<Position> queue = new ObjectArrayList<>();
-        queue.add(startPosition);
-        parentMap.put(startPosition, startPosition);
-
-        boolean found = false;
-        int queueIndex = 0;
-        while (queueIndex < queue.size()) {
-            final Position current = queue.get(queueIndex++);
-            if (current.equals(endPosition)) {
-                found = true;
-                break;
-            }
-            MinecraftClientData.getInstance().positionsToRail.getOrDefault(current, new Object2ObjectOpenHashMap<>()).keySet().forEach(neighbor -> {
-                if (!parentMap.containsKey(neighbor)) {
-                    parentMap.put(neighbor, current);
-                    queue.add(neighbor);
-                }
-            });
-        }
-
-        if (!found) {
-            return null;
-        }
-
-        final ObjectArrayList<ObjectObjectImmutablePair<BlockPos, BlockPos>> path = new ObjectArrayList<>();
-        Position current = endPosition;
-        while (!parentMap.get(current).equals(current)) {
-            final Position previous = parentMap.get(current);
-            path.add(0, new ObjectObjectImmutablePair<>(Init.positionToBlockPos(previous), Init.positionToBlockPos(current)));
-            current = previous;
-        }
-        return path;
     }
 }
