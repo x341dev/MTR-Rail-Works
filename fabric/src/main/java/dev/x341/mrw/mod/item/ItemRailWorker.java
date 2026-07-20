@@ -1,11 +1,13 @@
 package dev.x341.mrw.mod.item;
 
 import dev.x341.mrw.mod.client.InitClient;
-import dev.x341.mrw.mod.client.RailWorkerClickState;
+import dev.x341.mrw.mod.client.RailPathFinder;
 import dev.x341.mrw.mod.data.RailWorkerMode;
+import dev.x341.mrw.mod.packet.PacketApplyRailWorkerBuild;
 import dev.x341.mrw.mod.packet.PacketCycleRailWorkerTargetSlot;
 import dev.x341.mrw.mod.screen.RailWorkerConfigScreen;
-import org.mtr.mapping.holder.ActionResult;
+import org.mtr.libraries.it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import org.mtr.libraries.it.unimi.dsi.fastutil.objects.ObjectObjectImmutablePair;
 import org.mtr.mapping.holder.Block;
 import org.mtr.mapping.holder.BlockPos;
 import org.mtr.mapping.holder.BlockState;
@@ -24,9 +26,9 @@ import org.mtr.mapping.holder.Text;
 import org.mtr.mapping.holder.TextFormatting;
 import org.mtr.mapping.holder.TooltipContext;
 import org.mtr.mapping.holder.World;
-import org.mtr.mapping.mapper.ItemExtension;
 import org.mtr.mapping.mapper.TextHelper;
 import org.mtr.mod.block.BlockNode;
+import org.mtr.mod.generated.lang.TranslationProvider;
 
 import javax.annotation.Nullable;
 import java.util.List;
@@ -36,8 +38,19 @@ import java.util.List;
  * one configurable tool. Unlike {@link ItemBridgeWallCreator} this class owns its behavior
  * outright (no baked width/height variants, no mixins into a shared MTR base class) since every
  * setting lives in this item's own NBT and is edited through {@link RailWorkerConfigScreen}.
+ *
+ * <p>Node-click progress (the pair-selection state machine) also lives entirely in this specific
+ * item stack's own NBT, exactly like {@link ItemBridgeWallCreator}'s saved {@code TAG_POS} — never
+ * in a shared static field — so two Rail Worker stacks (different hotbar slots, one dropped and
+ * another picked up, ...) never bleed progress into each other. Click order is interleaved rather
+ * than sequential: 1st click is pair 1's start, 2nd click either completes pair 1 (if it
+ * BFS-connects to the 1st click — the operation then fires immediately using pair 1 alone) or, if
+ * it does not connect, is treated as pair 2's start; the 3rd click then completes pair 1's end and
+ * the 4th completes pair 2's end, firing both in one batched packet. This click order (start,
+ * start, end, end) matches walking along two parallel rails and clicking both starts before
+ * walking to the far end, rather than finishing one pair before starting the next.
  */
-public class ItemRailWorker extends ItemExtension {
+public class ItemRailWorker extends ItemNodeModifierSelectableBlockBase {
 
 	public static final String TAG_MODE = "mrw_mode";
 	public static final String TAG_REPLACE = "mrw_replace";
@@ -53,30 +66,14 @@ public class ItemRailWorker extends ItemExtension {
 	public static final int DEFAULT_WIDTH = 3;
 	public static final int DEFAULT_HEIGHT = 1;
 
+	/** 0 = idle, 1 = pair 1 start placed, 2 = both starts placed (dual mode), awaiting pair 1's end, 3 = pair 1 done, awaiting pair 2's end. */
+	private static final String TAG_CLICK_STAGE = "mrw_click_stage";
+	private static final String TAG_PAIR1_START = "mrw_pair1_start";
+	private static final String TAG_PAIR1_END = "mrw_pair1_end";
+	private static final String TAG_PAIR2_START = "mrw_pair2_start";
+
 	public ItemRailWorker(ItemSettings itemSettings) {
 		super(itemSettings);
-	}
-
-	@Override
-	public ActionResult useOnBlock2(ItemUsageContext context) {
-		final PlayerEntity player = context.getPlayer();
-		if (player == null) {
-			return ActionResult.PASS;
-		}
-
-		if (player.isSneaking()) {
-			if (!context.getWorld().isClient()) {
-				saveOrClearBlock(context, player);
-			}
-		} else if (context.getWorld().isClient()) {
-			final BlockPos blockPos = context.getBlockPos();
-			// Node selection only makes sense on an actual MTR rail node, not any block
-			if (context.getWorld().getBlockState(blockPos).getBlock().data instanceof BlockNode) {
-				RailWorkerClickState.getInstance().onNodeClick(blockPos);
-			}
-		}
-
-		return ActionResult.SUCCESS;
 	}
 
 	/**
@@ -90,23 +87,22 @@ public class ItemRailWorker extends ItemExtension {
 			return;
 		}
 		if (world.isClient()) {
-			RailWorkerClickState.getInstance().reset();
+			resetClickState(playerEntity.getStackInHand(hand).getOrCreateTag());
 			MinecraftClient.getInstance().openScreen(new Screen(new RailWorkerConfigScreen(playerEntity.getStackInHand(hand))));
 		}
 	}
 
 	@Override
 	public void addTooltips(ItemStack stack, @Nullable World world, List<MutableText> tooltip, TooltipContext options) {
-		final BlockPos pair1Node = RailWorkerClickState.getInstance().getPair1Node();
-		if (pair1Node != null) {
-			tooltip.add(TextHelper.translatable("tooltip.mrw.rail_worker_pair1", pair1Node.toShortString()).formatted(TextFormatting.GOLD));
+		final CompoundTag tag = stack.getOrCreateTag();
+
+		if (tag.contains(TAG_PAIR1_START)) {
+			tooltip.add(TextHelper.translatable("tooltip.mrw.rail_worker_pair1", BlockPos.fromLong(tag.getLong(TAG_PAIR1_START)).toShortString()).formatted(TextFormatting.GOLD));
 		}
-		final BlockPos pair2Node = RailWorkerClickState.getInstance().getPair2Node();
-		if (pair2Node != null) {
-			tooltip.add(TextHelper.translatable("tooltip.mrw.rail_worker_pair2", pair2Node.toShortString()).formatted(TextFormatting.GOLD));
+		if (tag.contains(TAG_PAIR2_START)) {
+			tooltip.add(TextHelper.translatable("tooltip.mrw.rail_worker_pair2", BlockPos.fromLong(tag.getLong(TAG_PAIR2_START)).toShortString()).formatted(TextFormatting.GOLD));
 		}
 
-		final CompoundTag tag = stack.getOrCreateTag();
 		final int mode = tag.getInt(TAG_MODE);
 		tooltip.add(TextHelper.translatable("tooltip.mrw.rail_worker_mode",
 				TextHelper.translatable(RailWorkerMode.hasBridge(mode) ? "tooltip.mrw.rail_worker_mode_on" : "tooltip.mrw.rail_worker_mode_off").getString(),
@@ -122,7 +118,8 @@ public class ItemRailWorker extends ItemExtension {
 		tooltip.add(TextHelper.translatable("tooltip.mrw.rail_worker_hint_configure", org.mtr.mod.InitClient.getShiftText()).formatted(TextFormatting.GRAY).formatted(TextFormatting.ITALIC));
 	}
 
-	private static void saveOrClearBlock(ItemUsageContext context, PlayerEntity player) {
+	@Override
+	protected void saveOrClearBlock(ItemUsageContext context, PlayerEntity player) {
 		final BlockPos blockPos = context.getBlockPos();
 		final BlockState clickedState = context.getWorld().getBlockState(blockPos);
 		if (clickedState.getBlock().data instanceof BlockNode) {
@@ -144,6 +141,94 @@ public class ItemRailWorker extends ItemExtension {
 		}
 	}
 
+	@Override
+	protected void onNodeClick(ItemUsageContext context, BlockPos clicked) {
+		final CompoundTag tag = context.getStack().getOrCreateTag();
+		final int stage = tag.getInt(TAG_CLICK_STAGE);
+		switch (stage) {
+			case 0:
+				tag.putLong(TAG_PAIR1_START, clicked.asLong());
+				tag.putInt(TAG_CLICK_STAGE, 1);
+				debugLog("click at " + clicked + " (stage 0->1): pair1Start set");
+				break;
+			case 1: {
+				final BlockPos pair1Start = BlockPos.fromLong(tag.getLong(TAG_PAIR1_START));
+				final ObjectArrayList<ObjectObjectImmutablePair<BlockPos, BlockPos>> path = RailPathFinder.findPath(pair1Start, clicked);
+				if (path != null) {
+					// Directly connected: the player only wants a single pair, build now
+					debugLog("click at " + clicked + " (stage 1): connects to pair1Start=" + pair1Start + " (" + path.size() + " segments) -> sending single-pair build");
+					InitClient.REGISTRY_CLIENT.sendPacketToServer(new PacketApplyRailWorkerBuild(path, pair1Start, clicked));
+					resetClickState(tag);
+				} else {
+					// Not connected: treat this as the second pair's start instead of an error
+					debugLog("click at " + clicked + " (stage 1->2): no path from pair1Start=" + pair1Start + " -> treating as pair2Start");
+					tag.putLong(TAG_PAIR2_START, clicked.asLong());
+					tag.putInt(TAG_CLICK_STAGE, 2);
+				}
+				break;
+			}
+			case 2: {
+				final BlockPos pair1Start = BlockPos.fromLong(tag.getLong(TAG_PAIR1_START));
+				final ObjectArrayList<ObjectObjectImmutablePair<BlockPos, BlockPos>> path = RailPathFinder.findPath(pair1Start, clicked);
+				if (path == null) {
+					debugLog("click at " + clicked + " (stage 2): no path from pair1Start=" + pair1Start + " -> rail not found, staying at stage 2");
+					showRailNotFound();
+					return;
+				}
+				tag.putLong(TAG_PAIR1_END, clicked.asLong());
+				tag.putInt(TAG_CLICK_STAGE, 3);
+				debugLog("click at " + clicked + " (stage 2->3): pair1End set, pair1 has " + path.size() + " segments");
+				break;
+			}
+			case 3: {
+				final BlockPos pair2Start = BlockPos.fromLong(tag.getLong(TAG_PAIR2_START));
+				final ObjectArrayList<ObjectObjectImmutablePair<BlockPos, BlockPos>> pair2Path = RailPathFinder.findPath(pair2Start, clicked);
+				if (pair2Path == null) {
+					debugLog("click at " + clicked + " (stage 3): no path from pair2Start=" + pair2Start + " -> rail not found, staying at stage 3");
+					showRailNotFound();
+					return;
+				}
+				final BlockPos pair1Start = BlockPos.fromLong(tag.getLong(TAG_PAIR1_START));
+				final BlockPos pair1End = BlockPos.fromLong(tag.getLong(TAG_PAIR1_END));
+				// Recomputed fresh rather than cached from stage 2->3, since NBT only stores the
+				// endpoints, not the resolved path
+				final ObjectArrayList<ObjectObjectImmutablePair<BlockPos, BlockPos>> pair1Path = RailPathFinder.findPath(pair1Start, pair1End);
+				if (pair1Path == null) {
+					debugLog("click at " + clicked + " (stage 3): pair1 (" + pair1Start + "->" + pair1End + ") no longer connects -> rail not found, staying at stage 3");
+					showRailNotFound();
+					return;
+				}
+				debugLog("click at " + clicked + " (stage 3): connects to pair2Start=" + pair2Start + " (" + pair2Path.size() + " segments) -> sending 2-pair build");
+				InitClient.REGISTRY_CLIENT.sendPacketToServer(new PacketApplyRailWorkerBuild(pair1Path, pair1Start, pair1End, pair2Path, pair2Start, clicked));
+				resetClickState(tag);
+				break;
+			}
+			default:
+				resetClickState(tag);
+				break;
+		}
+	}
+
+	private static void debugLog(String message) {
+		if (dev.x341.mrw.mod.MrwDebug.isEnabled()) {
+			dev.x341.mrw.mod.Init.LOGGER.info("[MRW debug] ItemRailWorker: {}", message);
+		}
+	}
+
+	private static void showRailNotFound() {
+		final ClientPlayerEntity player = MinecraftClient.getInstance().getPlayerMapped();
+		if (player != null) {
+			player.sendMessage(TranslationProvider.GUI_MTR_RAIL_NOT_FOUND_ACTION.getText(), true);
+		}
+	}
+
+	private static void resetClickState(CompoundTag tag) {
+		tag.remove(TAG_CLICK_STAGE);
+		tag.remove(TAG_PAIR1_START);
+		tag.remove(TAG_PAIR1_END);
+		tag.remove(TAG_PAIR2_START);
+	}
+
 	public static int getWidth(CompoundTag tag) {
 		return tag.contains(TAG_WIDTH) ? tag.getInt(TAG_WIDTH) : DEFAULT_WIDTH;
 	}
@@ -160,6 +245,17 @@ public class ItemRailWorker extends ItemExtension {
 	@Nullable
 	public static BlockState getWallState(CompoundTag tag) {
 		return tag.contains(TAG_WALL_BLOCK) ? Block.getStateFromRawId(tag.getInt(TAG_WALL_BLOCK)) : null;
+	}
+
+	/**
+	 * Drives the item's model override: 0 = nothing selected, 0.5 = working on pair 1 only,
+	 * 1.0 = committed to a second pair. Vanilla clamps model-predicate values to [0, 1] before
+	 * comparing them against override predicates, so this can't just return 0/1/2 — those get
+	 * clamped down to 1.0 and the "committed to pair 2" override could never match.
+	 */
+	public static float getTextureIndex(CompoundTag tag) {
+		final int stage = tag.getInt(TAG_CLICK_STAGE);
+		return stage >= 2 ? 1.0f : stage >= 1 ? 0.5f : 0.0f;
 	}
 
 	/**
