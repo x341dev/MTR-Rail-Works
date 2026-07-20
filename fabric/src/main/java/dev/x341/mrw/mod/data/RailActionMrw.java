@@ -16,7 +16,8 @@ import java.util.function.Consumer;
 
 /**
  * MRW's version of MTR's {@code RailAction}, covering the action types MTR 4.0.x does not have
- * (bridge walls) or does not support fully (tunnel walls with a single-side mode).
+     * (bridge walls, Rail Worker's walls/ceiling) or does not support fully (tunnel walls with a
+ * single-side mode).
  */
 public class RailActionMrw {
 
@@ -32,6 +33,8 @@ public class RailActionMrw {
 	private final int height;
 	private final int wallSide;
 	private final boolean invertWallSide;
+	private final boolean sidesOnly;
+	private final boolean replace;
 	private final double length;
 	private final BlockState state;
 	private final ObjectOpenHashSet<BlockPos> blacklistedPositions = new ObjectOpenHashSet<>();
@@ -39,6 +42,21 @@ public class RailActionMrw {
 	private static final double INCREMENT = 0.1;
 
 	public RailActionMrw(ServerWorld serverWorld, ServerPlayerEntity serverPlayerEntity, RailActionType railActionType, Rail rail, int radius, int height, @Nullable BlockState state, int wallSide) {
+		this(serverWorld, serverPlayerEntity, railActionType, rail, radius, height, state, wallSide, isRailAgainstPlayerFacing(serverPlayerEntity, rail), false, false);
+	}
+
+	/**
+	 * Used for {@link RailActionType#RAIL_WORKER_WALLS}, where the "wall side" reference direction
+	 * comes from the raw coordinate offset between the two nodes the player clicked to define this
+	 * segment's pair, rather than from the player's facing at build time ({@link #isRailAgainstPlayerFacing}).
+	 * Rail Worker's node pairs can be disconnected from where the player is standing (or built later,
+	 * from a saved macro), so a facing-based side has no reliable meaning here.
+	 */
+	public RailActionMrw(ServerWorld serverWorld, ServerPlayerEntity serverPlayerEntity, RailActionType railActionType, Rail rail, int radius, int height, @Nullable BlockState state, int wallSide, BlockPos pairStart, BlockPos pairEnd, boolean sidesOnly, boolean replace) {
+		this(serverWorld, serverPlayerEntity, railActionType, rail, radius, height, state, wallSide, isRailAgainstNodeOffset(pairStart, pairEnd, rail), sidesOnly, replace);
+	}
+
+	private RailActionMrw(ServerWorld serverWorld, ServerPlayerEntity serverPlayerEntity, RailActionType railActionType, Rail rail, int radius, int height, @Nullable BlockState state, int wallSide, boolean invertWallSide, boolean sidesOnly, boolean replace) {
 		id = new Random().nextLong();
 		this.serverWorld = serverWorld;
 		uuid = serverPlayerEntity.getUuid();
@@ -48,7 +66,9 @@ public class RailActionMrw {
 		this.radius = radius;
 		this.height = height;
 		this.wallSide = wallSide;
-		this.invertWallSide = isRailAgainstPlayerFacing(serverPlayerEntity, rail);
+		this.invertWallSide = invertWallSide;
+		this.sidesOnly = sidesOnly;
+		this.replace = replace;
 		this.state = state;
 		length = rail.railMath.getLength();
 		distance = 0;
@@ -70,6 +90,25 @@ public class RailActionMrw {
 		return (pos2.x - pos1.x) * forwardX + (pos2.z - pos1.z) * forwardZ > 0;
 	}
 
+	/**
+	 * Same purpose as {@link #isRailAgainstPlayerFacing}, but for Rail Worker: the reference
+	 * direction is the raw coordinate offset between the two nodes the player clicked for this
+	 * pair (not the player's look vector, and not the rail's own internal parameterization vector),
+	 * so the side stays consistent no matter where the player is standing when the build runs.
+	 */
+	private static boolean isRailAgainstNodeOffset(BlockPos pairStart, BlockPos pairEnd, Rail rail) {
+		final Vector pos1 = rail.railMath.getPosition(0, false);
+		final Vector pos2 = rail.railMath.getPosition(Math.min(INCREMENT, rail.railMath.getLength()), false);
+		final double offsetX = pairEnd.getX() - pairStart.getX();
+		final double offsetZ = pairEnd.getZ() - pairStart.getZ();
+		final boolean invertWallSide = (pos2.x - pos1.x) * offsetX + (pos2.z - pos1.z) * offsetZ > 0;
+		if (dev.x341.mrw.mod.MrwDebug.isEnabled()) {
+			dev.x341.mrw.mod.Init.LOGGER.info("[MRW debug] wall side: pairStart={} pairEnd={} railDir=({}, {}) offset=({}, {}) invertWallSide={}",
+					pairStart, pairEnd, pos2.x - pos1.x, pos2.z - pos1.z, offsetX, offsetZ, invertWallSide);
+		}
+		return invertWallSide;
+	}
+
 	public String getDescription() {
 		return TextHelper.translatable(railActionType.nameTranslationKey, playerName, Utilities.round(length, 1), state == null ? "" : TextHelper.translatable(state.getBlock().getTranslationKey()).getString()).getString();
 	}
@@ -82,6 +121,8 @@ public class RailActionMrw {
 		switch (railActionType) {
 			case TUNNEL_WALL:
 				return createTunnelWall();
+			case RAIL_WORKER_WALLS:
+				return createRailWorkerWalls();
 			case BRIDGE_WALL:
 			default:
 				return createBridgeWall();
@@ -96,11 +137,23 @@ public class RailActionMrw {
 		return create(false, true, vector -> place(fromVector(vector.add(0, -1, 0))));
 	}
 
+	private boolean createRailWorkerWalls() {
+		return create(false, sidesOnly, vector -> place(fromVector(vector), replace));
+	}
+
 	private void place(BlockPos blockPos) {
-		if (!blacklistedPositions.contains(blockPos) && canPlace(serverWorld, blockPos)) {
-			serverWorld.setBlockState(blockPos, state);
-			blacklistedPositions.add(blockPos);
+		place(blockPos, false);
+	}
+
+	private void place(BlockPos blockPos, boolean replace) {
+		if (blacklistedPositions.contains(blockPos) || !canPlace(serverWorld, blockPos)) {
+			return;
 		}
+		if (replace && serverWorld.getBlockState(blockPos).isAir()) {
+			return;
+		}
+		serverWorld.setBlockState(blockPos, state);
+		blacklistedPositions.add(blockPos);
 	}
 
 	private boolean create(boolean includeMiddle, boolean sidesOnly, Consumer<Vector> consumer) {

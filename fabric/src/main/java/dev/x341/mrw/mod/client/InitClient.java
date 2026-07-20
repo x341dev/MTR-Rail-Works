@@ -36,6 +36,10 @@ public final class InitClient {
 		registerSelectedPredicate(Items.BRIDGE_WALL_CREATOR_3_7);
 		registerSelectedPredicate(Items.BRIDGE_WALL_CREATOR_3_9);
 
+		// Rail Worker tracks click progress client-side (see RailWorkerClickState) instead of the
+		// TAG_POS the other node-clicking items store on the stack itself
+		REGISTRY_CLIENT.registerItemModelPredicate(Items.RAIL_WORKER, new Identifier(Init.MOD_ID, "selected"), (itemStack, clientWorld, livingEntity) -> RailWorkerClickState.getInstance().getTextureIndex());
+
 		REGISTRY_CLIENT.init();
 	}
 

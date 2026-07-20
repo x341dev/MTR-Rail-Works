@@ -1,0 +1,72 @@
+name: Nightly Build
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Nightly Build & Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Get Current Date
+        id: date
+        run: echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'zulu'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Grant Execute Permission to Gradle Wrapper
+        run: chmod +x gradlew
+
+      - name: Build Fabric and Forge Modules
+        run: |
+          for i in {1..3}; do
+            ./gradlew fabric:build forge:build && break || echo "Build failed, retrying in 10 seconds..." && sleep 10
+            if [ $i -eq 3 ]; then
+              exit 1
+            fi
+          done
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mtr-rail-works-nightly-jars
+          path: build/release/*.jar
+          retention-days: 3
+
+      - name: Create Nightly Pre-Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="nightly-${{ steps.date.outputs.date }}"
+          gh release create "$TAG" --prerelease --title "Nightly Build $TAG" --notes "Automated nightly snapshot execution."
+
+      - name: Upload Files to GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="nightly-${{ steps.date.outputs.date }}"
+          for file in build/release/*.jar; do
+            if [ -f "$file" ]; then
+              if [[ ! "$file" =~ (sources|dev|sources-dev|slim)\.jar$ ]]; then
+                echo "Uploading asset: $file"
+                gh release upload "$TAG" "$file" --clobber
+              fi
+            fi
+          done

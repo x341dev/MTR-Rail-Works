@@ -3,6 +3,7 @@ package dev.x341.mrw;
 import dev.x341.mrw.mod.Init;
 import dev.x341.mrw.mod.client.InitClient;
 import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.loading.FMLEnvironment;
 
@@ -18,6 +19,7 @@ public final class MRWForge {
         Init.init();
         if (FMLEnvironment.dist == Dist.CLIENT) {
             InitClient.init();
+            MinecraftForge.EVENT_BUS.register(new RailWorkerClientHandler());
         }
     }
 }
