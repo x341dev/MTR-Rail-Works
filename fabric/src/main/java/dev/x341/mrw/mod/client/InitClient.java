@@ -1,6 +1,7 @@
 package dev.x341.mrw.mod.client;
 
 import dev.x341.mrw.mod.Init;
+import dev.x341.mrw.mod.item.ItemRailWorker;
 import dev.x341.mrw.mod.registry.Items;
 import org.mtr.mapping.holder.Identifier;
 import org.mtr.mapping.registry.ItemRegistryObject;
@@ -36,9 +37,9 @@ public final class InitClient {
 		registerSelectedPredicate(Items.BRIDGE_WALL_CREATOR_3_7);
 		registerSelectedPredicate(Items.BRIDGE_WALL_CREATOR_3_9);
 
-		// Rail Worker tracks click progress client-side (see RailWorkerClickState) instead of the
-		// TAG_POS the other node-clicking items store on the stack itself
-		REGISTRY_CLIENT.registerItemModelPredicate(Items.RAIL_WORKER, new Identifier(Init.MOD_ID, "selected"), (itemStack, clientWorld, livingEntity) -> RailWorkerClickState.getInstance().getTextureIndex());
+		// Rail Worker's click progress lives in the item stack's own NBT, same as the TAG_POS the
+		// other node-clicking items store on their own stack (see ItemRailWorker)
+		REGISTRY_CLIENT.registerItemModelPredicate(Items.RAIL_WORKER, new Identifier(Init.MOD_ID, "selected"), (itemStack, clientWorld, livingEntity) -> ItemRailWorker.getTextureIndex(itemStack.getOrCreateTag()));
 
 		REGISTRY_CLIENT.init();
 	}

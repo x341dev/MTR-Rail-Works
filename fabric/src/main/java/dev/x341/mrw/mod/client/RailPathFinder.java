@@ -15,7 +15,7 @@ import javax.annotation.Nullable;
  * two clicked {@link BlockPos}es into an ordered list of directly-connected rail sub-segments.
  * Shared by anything that needs to resolve a possibly multi-hop path between two nodes, e.g.
  * {@link dev.x341.mrw.mod.mixin.ItemNodeModifierSelectableBlockBaseMixin} and
- * {@link RailWorkerClickState}.
+ * {@link dev.x341.mrw.mod.item.ItemRailWorker}.
  */
 public final class RailPathFinder {
 

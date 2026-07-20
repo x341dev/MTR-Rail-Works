@@ -109,13 +109,16 @@ graying-out of inactive branches.
     the computed direction. Anything that wants single-sided walls must pass `LEFT` or `RIGHT` as
     the nominal side and let `invertWallSide` flip which physical side that resolves to.
 - **Rail Worker** (`ItemRailWorker`) — the fullest worked example of most of the above at once:
-  NBT-stored config (mode bitmask, width/height, floor/wall block, target slot) edited through a
-  vanilla-widget `ScreenExtension` screen (`RailWorkerConfigScreen`); a client-only click state
-  machine (`RailWorkerClickState`) resolving BFS rail paths (`RailPathFinder`) between clicked
-  nodes; a single batched packet (`PacketApplyRailWorkerBuild`) that reads mode/size/blocks from
-  the item's own already-synced NBT rather than trusting anything the packet claims; and a 3-state
-  item model override (none / pair 1 / pair 2 selected) driven by `RailWorkerClickState`, not item
-  NBT, since click progress is deliberately transient rather than persisted.
+  extends this mod's own `ItemNodeModifierSelectableBlockBase` (not MTR's — that one assumes a
+  single saved block and a single 2-click connect flow, neither of which fits Rail Worker), which
+  guarantees a plain click only ever reaches `onNodeClick` when it lands on an actual rail node.
+  All state — mode bitmask, width/height, floor/wall block, target slot, *and* the 4-click
+  dual-pair click-progress state machine — lives in this specific item stack's own NBT, exactly
+  like MTR's own node-clicking items store their `TAG_POS`, so two Rail Worker stacks never bleed
+  progress into each other. Node clicks resolve BFS rail paths (`RailPathFinder`) between clicked
+  positions; a single batched packet (`PacketApplyRailWorkerBuild`) that reads mode/size/blocks
+  from the item's own already-synced NBT rather than trusting anything the packet claims; and a
+  3-state item model override (none / pair 1 / pair 2 selected) computed from that same NBT.
 - **Debug logging** — `MrwDebug.isEnabled()`, toggled by the `/mrw debug on|off` command
   (registered in `Init.init()` via `REGISTRY.registerCommand`, op-only). When enabled, extra
   detail (wall-side resolution inputs/outputs, Rail Worker build parameters) is written to
