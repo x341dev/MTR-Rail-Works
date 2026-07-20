@@ -36,6 +36,8 @@ jobs:
     needs: release-please
     if: ${{ needs.release-please.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
+    outputs:
+      tag_name: ${{ steps.determine-tag.outputs.tag_name }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -73,6 +75,20 @@ jobs:
             exit 1
           fi
 
+      - name: Determine Tag Name
+        id: determine-tag
+        run: |
+          if [ "${{ needs.release-please.outputs.release_created }}" = "true" ]; then
+            echo "tag_name=${{ needs.release-please.outputs.tag_name }}" >> $GITHUB_OUTPUT
+          else
+            SUFFIX="${{ github.event.inputs.version_suffix }}"
+            if [ -n "$SUFFIX" ]; then
+              echo "tag_name=v${GRADLE_VERSION}-${SUFFIX}" >> $GITHUB_OUTPUT
+            else
+              echo "tag_name=v${GRADLE_VERSION}" >> $GITHUB_OUTPUT
+            fi
+          fi
+
       - name: Grant Execute Permission to Gradle Wrapper
         run: chmod +x gradlew
 
@@ -95,7 +111,7 @@ jobs:
   publish-github-release:
     name: Upload to GitHub Release Assets
     needs: [release-please, build-and-pack]
-    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    if: ${{ needs.release-please.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     steps:
       - name: Download Artifact
@@ -104,16 +120,25 @@ jobs:
           name: mtr-rail-works-jars
           path: ./ready-libs
 
+      - name: Create Pre-Release
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ needs.build-and-pack.outputs.tag_name }}"
+          gh release view "$TAG" || gh release create "$TAG" --prerelease --title "$TAG" --notes "Manual pre-release build"
+
       - name: Upload Files to GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          TAG="${{ needs.build-and-pack.outputs.tag_name }}"
           echo "Searching for executables in ./ready-libs..."
           for file in ./ready-libs/*.jar; do
             if [ -f "$file" ]; then
               if [[ ! "$file" =~ (sources|dev|sources-dev|slim)\.jar$ ]]; then
                 echo "Uploading asset: $file"
-                gh release upload ${{ needs.release-please.outputs.tag_name }} "$file" --clobber
+                gh release upload "$TAG" "$file" --clobber
               fi
             fi
           done
