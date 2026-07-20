@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/x341dev/MTR-Rail-Works/compare/v0.2.0...v0.2.1) (2026-07-20)
+
+
+### Bug Fixes
+
+* use release-please block annotation for gradle.properties and resync version ([3104d63](https://github.com/x341dev/MTR-Rail-Works/commit/3104d639bfbef539a13a9826e59a30017ce42816))
+
 ## [0.2.0](https://github.com/x341dev/MTR-Rail-Works/compare/v0.1.1...v0.2.0) (2026-07-20)
 
 
