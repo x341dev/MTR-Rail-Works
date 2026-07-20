@@ -40,8 +40,13 @@ import java.util.function.IntFunction;
  */
 public class RailWorkerConfigScreen extends ScreenExtension {
 
-	// Layout constants shared by init2() (widget placement) and render() (panel + labels)
+	// Layout constants shared by init2() (widget placement) and render() (panel + labels). The
+	// panel is anchored to the bottom of the screen rather than centered, and every vertical gap
+	// below is double the original spacing (228px panel -> 456px) so content spreads out to fill
+	// the extra room instead of leaving it empty.
 	private static final int PANEL_HALF_WIDTH = 210;
+	private static final int PANEL_HEIGHT = 456;
+	private static final int BOTTOM_MARGIN = 20;
 	private static final int COLUMN_WIDTH = 100;
 	private static final int CHECKBOX_WIDTH = 90;
 	private static final int CHECKBOX_HEIGHT = 20;
@@ -86,7 +91,8 @@ public class RailWorkerConfigScreen extends ScreenExtension {
 	}
 
 	private int topY() {
-		return getHeightMapped() / 2 - 120;
+		// panelBottom (topY + 388) sits BOTTOM_MARGIN above the bottom of the screen
+		return getHeightMapped() - BOTTOM_MARGIN - 388;
 	}
 
 	private int modeColumnCenterX(int column) {
@@ -111,15 +117,15 @@ public class RailWorkerConfigScreen extends ScreenExtension {
 		}
 
 		final int centerX = getWidthMapped() / 2;
-		final int replaceY = topY + 50;
+		final int replaceY = topY + 100;
 		replaceCheckbox = addCheckbox(centerX - 80, replaceY, 160, replace, checked -> replace = checked);
 		replaceCheckbox.setActiveMapped(RailWorkerMode.hasWallsOnly(mode));
 
-		final int widthSliderY = topY + 104;
+		final int widthSliderY = topY + 208;
 		widthSlider = new StepSlider(centerX - SLIDER_WIDTH / 2, widthSliderY, SLIDER_WIDTH, SLIDER_HEIGHT, 4, widthToIndex(width), index -> TextHelper.translatable("gui.mrw.rail_worker_width", 3 + 2 * index).getString());
 		addChild(new ClickableWidget(widthSlider));
 
-		final int heightSliderY = topY + 130;
+		final int heightSliderY = topY + 260;
 		heightSlider = new StepSlider(centerX - SLIDER_WIDTH / 2, heightSliderY, SLIDER_WIDTH, SLIDER_HEIGHT, 8, height - 1, index -> TextHelper.translatable("gui.mrw.rail_worker_height", index + 1).getString());
 		addChild(new ClickableWidget(heightSlider));
 	}
@@ -154,26 +160,26 @@ public class RailWorkerConfigScreen extends ScreenExtension {
 
 		final int centerX = getWidthMapped() / 2;
 		final int topY = topY();
-		final int panelTop = topY - 34;
-		final int panelBottom = topY + 194;
+		final int panelTop = topY - 68;
+		final int panelBottom = topY + 388;
 		final GuiDrawing guiDrawing = new GuiDrawing(graphicsHolder);
 		guiDrawing.beginDrawingRectangle();
-		guiDrawing.drawRectangle(centerX - PANEL_HALF_WIDTH, panelTop, PANEL_HALF_WIDTH * 2, panelBottom - panelTop, 0xC0101010);
+		guiDrawing.drawRectangle(centerX - PANEL_HALF_WIDTH, panelTop, PANEL_HALF_WIDTH * 2, PANEL_HEIGHT, 0xC0101010);
 		guiDrawing.finishDrawingRectangle();
 
 		super.render(graphicsHolder, mouseX, mouseY, delta);
 
 		for (int column = 0; column < MODE_LABEL_KEYS.length; column++) {
-			graphicsHolder.drawCenteredText(TextHelper.translatable(MODE_LABEL_KEYS[column]), modeColumnCenterX(column), topY + CHECKBOX_HEIGHT + 4, COLOR_LABEL);
+			graphicsHolder.drawCenteredText(TextHelper.translatable(MODE_LABEL_KEYS[column]), modeColumnCenterX(column), topY + CHECKBOX_HEIGHT + 8, COLOR_LABEL);
 		}
-		graphicsHolder.drawCenteredText(TextHelper.translatable("gui.mrw.rail_worker_replace"), centerX, topY + 50 + CHECKBOX_HEIGHT + 4, RailWorkerMode.hasWallsOnly(mode) ? COLOR_LABEL : COLOR_LABEL_DISABLED);
+		graphicsHolder.drawCenteredText(TextHelper.translatable("gui.mrw.rail_worker_replace"), centerX, topY + 100 + CHECKBOX_HEIGHT + 8, RailWorkerMode.hasWallsOnly(mode) ? COLOR_LABEL : COLOR_LABEL_DISABLED);
 
 		final CompoundTag tag = itemStack.getOrCreateTag();
 		final BlockState floorState = ItemRailWorker.getFloorState(tag);
 		final BlockState wallState = ItemRailWorker.getWallState(tag);
-		graphicsHolder.drawCenteredText(TextHelper.translatable("gui.mrw.rail_worker_title"), centerX, topY - 20, COLOR_LABEL);
-		graphicsHolder.drawCenteredText(TextHelper.translatable("gui.mrw.rail_worker_floor_block", blockName(floorState)), centerX, topY + 160, COLOR_LABEL);
-		graphicsHolder.drawCenteredText(TextHelper.translatable("gui.mrw.rail_worker_wall_block", blockName(wallState)), centerX, topY + 174, COLOR_LABEL);
+		graphicsHolder.drawCenteredText(TextHelper.translatable("gui.mrw.rail_worker_title"), centerX, topY - 40, COLOR_LABEL);
+		graphicsHolder.drawCenteredText(TextHelper.translatable("gui.mrw.rail_worker_floor_block", blockName(floorState)), centerX, topY + 320, COLOR_LABEL);
+		graphicsHolder.drawCenteredText(TextHelper.translatable("gui.mrw.rail_worker_wall_block", blockName(wallState)), centerX, topY + 348, COLOR_LABEL);
 	}
 
 	private static String blockName(@Nullable BlockState state) {
