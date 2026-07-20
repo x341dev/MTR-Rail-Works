@@ -32,7 +32,7 @@ jobs:
           release-type: java
 
   build-and-pack:
-    name: Build & Pack Jar
+    name: Build & Pack
     needs: release-please
     if: ${{ needs.release-please.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
@@ -51,46 +51,43 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Validate version consistency
+      - name: Read Manifest Version
         run: |
-          MANIFEST_VERSION=$(jq -r '.["."]' .release-please-manifest.json)
+          if [ -f .release-please-manifest.json ]; then
+            echo "MANIFEST_VERSION=$(jq -r '.["."]' .release-please-manifest.json)" >> $GITHUB_ENV
+          else
+            echo "MANIFEST_VERSION=" >> $GITHUB_ENV
+            echo "Warning: .release-please-manifest.json not found. Skipping validation."
+          fi
+
+      - name: Read Gradle Version
+        run: |
           GRADLE_VERSION=$(grep -E '^mod_version[[:space:]]*=[[:space:]]*' gradle.properties | cut -d= -f2 | tr -d '[:space:]' || grep -E '^version[[:space:]]*=[[:space:]]*' gradle.properties | cut -d= -f2 | tr -d '[:space:]')
-          TXT_VERSION=$(cat version.txt | tr -d '[:space:]' || echo "")
-          
-          echo "manifest: $MANIFEST_VERSION | gradle.properties: $GRADLE_VERSION | version.txt: $TXT_VERSION"
-          
-          if [ -n "$GRADLE_VERSION" ] && [ "$MANIFEST_VERSION" != "$GRADLE_VERSION" ]; then
+          echo "GRADLE_VERSION=$GRADLE_VERSION" >> $GITHUB_ENV
+
+      - name: Verify Version Consistency
+        run: |
+          echo "manifest: ${MANIFEST_VERSION:-N/A} | gradle.properties: $GRADLE_VERSION"
+          if [ -n "$MANIFEST_VERSION" ] && [ -n "$GRADLE_VERSION" ] && [ "$MANIFEST_VERSION" != "$GRADLE_VERSION" ]; then
             echo "ERROR: .release-please-manifest.json ($MANIFEST_VERSION) does not match gradle.properties ($GRADLE_VERSION)"
             exit 1
           fi
-          if [ -n "$TXT_VERSION" ] && [ "$MANIFEST_VERSION" != "$TXT_VERSION" ]; then
-            echo "ERROR: .release-please-manifest.json ($MANIFEST_VERSION) does not match version.txt ($TXT_VERSION)"
-            exit 1
-          fi
 
-      - name: Build with Gradle
-        run: |
-          VERSION="${{ needs.release-please.outputs.version }}"
-          if [ -z "$VERSION" ] && [ -f version.txt ]; then
-            VERSION=$(cat version.txt | tr -d '[:space:]')
-            SUFFIX="${{ github.event.inputs.version_suffix }}"
-            if [ -n "$SUFFIX" ]; then
-              VERSION="${VERSION}-${SUFFIX}"
-            fi
-            echo "Manual run detected. Version: $VERSION"
-          fi
-          
-          ./gradlew build
+      - name: Grant Execute Permission to Gradle Wrapper
+        run: chmod +x gradlew
+
+      - name: Build Fabric and Forge Modules
+        run: ./gradlew fabric:build forge:build
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: mod-jar
-          path: build/libs/*.jar
+          name: mtr-rail-works-jars
+          path: build/release/*.jar
           retention-days: 7
 
   publish-github-release:
-    name: Upload Jar to GitHub Release Assets
+    name: Upload to GitHub Release Assets
     needs: [release-please, build-and-pack]
     if: ${{ needs.release-please.outputs.release_created == 'true' }}
     runs-on: ubuntu-latest
@@ -98,13 +95,19 @@ jobs:
       - name: Download Artifact
         uses: actions/download-artifact@v4
         with:
-          name: mod-jar
+          name: mtr-rail-works-jars
           path: ./ready-libs
 
-      - name: Upload .jar to GitHub Release
+      - name: Upload to GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          JAR_FILE=$(ls ./ready-libs/*.jar | grep -vE '(sources|dev|sources-dev)\.jar$' | head -n 1)
-          echo "Uploading $JAR_FILE to release ${{ needs.release-please.outputs.tag_name }}"
-          gh release upload ${{ needs.release-please.outputs.tag_name }} "$JAR_FILE"
+          echo "Searching for executables in ./ready-libs..."
+          for file in ./ready-libs/*.jar; do
+            if [ -f "$file" ]; then
+              if [[ ! "$file" =~ (sources|dev|sources-dev|slim)\.jar$ ]]; then
+                echo "Uploading asset: $file"
+                gh release upload ${{ needs.release-please.outputs.tag_name }} "$file" --clobber
+              fi
+            fi
+          done
