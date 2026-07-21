@@ -134,7 +134,8 @@ public final class PacketApplyRailWorkerBuild extends PacketHandler {
 					Init.getRailActionModule(serverPlayerEntity.getServerWorld(), railActionModule -> railActionModule.markRailForTunnel(rail, serverPlayerEntity, radius, height));
 				}
 				if (anyWalls && wallState != null) {
-					dev.x341.mrw.mod.Init.getRailActionModule(serverPlayerEntity.getServerWorld(), railActionModuleMrw -> railActionModuleMrw.markRailForRailWorkerWalls(rail, serverPlayerEntity, radius, height, wallState, sidesOnly, replace, pairStart, pairEnd, wallSide));
+					final boolean waitForVanillaTunnelQueue = RailWorkerMode.hasTunnel(mode);
+					dev.x341.mrw.mod.Init.getRailActionModule(serverPlayerEntity.getServerWorld(), railActionModuleMrw -> railActionModuleMrw.markRailForRailWorkerWalls(rail, serverPlayerEntity, radius, height, wallState, sidesOnly, replace, pairStart, pairEnd, wallSide, waitForVanillaTunnelQueue));
 				}
 			});
 		}
