@@ -6,8 +6,17 @@ on:
       - main
   workflow_dispatch:
     inputs:
+      release_type:
+        description: 'Release type for this manual build'
+        required: true
+        type: choice
+        options:
+          - release
+          - beta
+          - alpha
+        default: beta
       version_suffix:
-        description: 'Version suffix (ex. beta.1). Leave blank to use actual.'
+        description: 'Optional version suffix (ex. beta.1). Leave blank to use gradle.properties version as-is.'
         required: false
         type: string
 
@@ -18,11 +27,13 @@ permissions:
 jobs:
   release-please:
     name: Release Please (PR Gate)
+    if: ${{ github.event_name == 'push' }}
     runs-on: ubuntu-latest
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       version: ${{ steps.release.outputs.version }}
       tag_name: ${{ steps.release.outputs.tag_name }}
+      body: ${{ steps.release.outputs.body }}
     steps:
       - name: Run Release Please
         id: release
@@ -33,7 +44,7 @@ jobs:
   build-and-pack:
     name: Build & Pack (MC ${{ matrix.minecraft_version }})
     needs: release-please
-    if: ${{ needs.release-please.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch' }}
+    if: ${{ !cancelled() && (needs.release-please.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch') }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -41,6 +52,8 @@ jobs:
         minecraft_version: [1.17.1, 1.18.2, 1.19.2, 1.19.4, 1.20.1, 1.20.4]
     outputs:
       tag_name: ${{ steps.determine-tag.outputs.tag_name }}
+      version_number: ${{ steps.determine-tag.outputs.version_number }}
+      changelog: ${{ steps.determine-tag.outputs.changelog }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -78,19 +91,31 @@ jobs:
             exit 1
           fi
 
-      - name: Determine Tag Name
+      - name: Determine Tag Name & Changelog
         id: determine-tag
+        env:
+          RELEASE_PLEASE_BODY: ${{ needs.release-please.outputs.body }}
         run: |
           if [ "${{ needs.release-please.outputs.release_created }}" = "true" ]; then
-            echo "tag_name=${{ needs.release-please.outputs.tag_name }}" >> $GITHUB_OUTPUT
+            TAG="${{ needs.release-please.outputs.tag_name }}"
+            CHANGELOG="$RELEASE_PLEASE_BODY"
           else
             SUFFIX="${{ github.event.inputs.version_suffix }}"
             if [ -n "$SUFFIX" ]; then
-              echo "tag_name=v${GRADLE_VERSION}-${SUFFIX}" >> $GITHUB_OUTPUT
+              TAG="v${GRADLE_VERSION}-${SUFFIX}"
             else
-              echo "tag_name=v${GRADLE_VERSION}" >> $GITHUB_OUTPUT
+              TAG="v${GRADLE_VERSION}"
             fi
+            CHANGELOG="Manual ${{ github.event.inputs.release_type }} build of ${TAG}."
           fi
+          VERSION_NUMBER="${TAG#v}"
+          DELIMITER="CHANGELOG_EOF_${GITHUB_RUN_ID}_${{ matrix.minecraft_version }}"
+
+          echo "tag_name=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version_number=$VERSION_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "changelog<<$DELIMITER" >> "$GITHUB_OUTPUT"
+          echo "$CHANGELOG" >> "$GITHUB_OUTPUT"
+          echo "$DELIMITER" >> "$GITHUB_OUTPUT"
 
       - name: Grant Execute Permission to Gradle Wrapper
         run: chmod +x gradlew
@@ -119,7 +144,7 @@ jobs:
   publish-github-release:
     name: Upload to GitHub Release Assets
     needs: [release-please, build-and-pack]
-    if: ${{ needs.release-please.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch' }}
+    if: ${{ !cancelled() && (needs.release-please.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -134,13 +159,23 @@ jobs:
           path: ./ready-libs
           merge-multiple: true
 
-      - name: Create Pre-Release
+      - name: Create or Update Release
         if: ${{ github.event_name == 'workflow_dispatch' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CHANGELOG: ${{ needs.build-and-pack.outputs.changelog }}
         run: |
           TAG="${{ needs.build-and-pack.outputs.tag_name }}"
-          gh release view "$TAG" || gh release create "$TAG" --prerelease --title "$TAG" --notes "Manual pre-release build"
+          IS_PRERELEASE=false
+          if [ "${{ github.event.inputs.release_type }}" != "release" ]; then
+            IS_PRERELEASE=true
+          fi
+          printf '%s\n' "$CHANGELOG" > /tmp/changelog.md
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "$TAG" --notes-file /tmp/changelog.md --prerelease=$IS_PRERELEASE
+          else
+            gh release create "$TAG" --title "$TAG" --notes-file /tmp/changelog.md --prerelease=$IS_PRERELEASE
+          fi
 
       - name: Upload Files to GitHub Release
         env:
@@ -156,42 +191,35 @@ jobs:
               fi
             fi
           done
-          
+
   publish-modrinth:
-    name: Publish to Modrinth
+    name: Publish to Modrinth (${{ matrix.loader }} ${{ matrix.minecraft_version }})
     needs: [release-please, build-and-pack, publish-github-release]
-    if: ${{ needs.release-please.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch' }}
+    if: ${{ !cancelled() && (needs.release-please.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch') }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        minecraft_version: [1.17.1, 1.18.2, 1.19.2, 1.19.4, 1.20.1, 1.20.4]
+        loader: [fabric, forge]
     steps:
-      - name: Download Artifacts
+      - name: Download Artifact
         uses: actions/download-artifact@v4
         with:
-          pattern: mtr-rail-works-jars-*
+          name: mtr-rail-works-jars-${{ matrix.minecraft_version }}
           path: ./ready-libs
-          merge-multiple: true
-
-      - name: Clean Extra Jars
-        run: |
-          rm -f ./ready-libs/*-sources.jar ./ready-libs/*-dev.jar ./ready-libs/*-slim.jar
 
       - name: Publish to Modrinth
         uses: Kira-NT/mc-publish@v3
         with:
           modrinth-id: "xqd2bMI8"
           modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
-          name: "MTR Rail Works ${{ needs.build-and-pack.outputs.tag_name }}"
-          version: ${{ needs.build-and-pack.outputs.tag_name }}
-          version-type: ${{ github.event_name == 'workflow_dispatch' && 'beta' || 'release' }}
-          files: ./ready-libs/*.jar
-          game-versions: |
-            1.17.1
-            1.18.2
-            1.19.2
-            1.19.4
-            1.20.1
-            1.20.4
-          loaders: |
-            fabric
-            forge
+          name: "MTR Rail Works ${{ needs.build-and-pack.outputs.tag_name }} for ${{ matrix.loader }} ${{ matrix.minecraft_version }}"
+          version: ${{ needs.build-and-pack.outputs.version_number }}
+          version-type: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release_type || 'release' }}
+          changelog: ${{ needs.build-and-pack.outputs.changelog }}
+          files: ./ready-libs/*-${{ matrix.loader }}-*.jar
+          game-versions: ${{ matrix.minecraft_version }}
+          loaders: ${{ matrix.loader }}
           retry-attempts: 2
           retry-delay: 10000
