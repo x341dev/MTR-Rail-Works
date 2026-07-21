@@ -187,7 +187,6 @@ jobs:
           # Categorized (Conventional Commits style) changelog instead of a raw commit dump.
           FEATURES=$(git log --pretty=format:'%s' "$RANGE" | grep -E '^feat(\([^)]*\))?:' | sed -E 's/^feat(\([^)]*\))?:[[:space:]]*/- /')
           FIXES=$(git log --pretty=format:'%s' "$RANGE" | grep -E '^fix(\([^)]*\))?:' | sed -E 's/^fix(\([^)]*\))?:[[:space:]]*/- /')
-          OTHERS=$(git log --pretty=format:'%s' "$RANGE" | grep -vE '^(feat|fix)(\([^)]*\))?:' | sed -E 's/^/- /')
 
           SECTIONS=""
           if [ -n "$FEATURES" ]; then
@@ -195,9 +194,6 @@ jobs:
           fi
           if [ -n "$FIXES" ]; then
             SECTIONS="${SECTIONS}### Bug Fixes\n${FIXES}\n\n"
-          fi
-          if [ -n "$OTHERS" ]; then
-            SECTIONS="${SECTIONS}### Other Changes\n${OTHERS}\n\n"
           fi
           CHANGELOG=$(printf '%b' "$SECTIONS")
 
