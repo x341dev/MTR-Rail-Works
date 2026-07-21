@@ -175,13 +175,12 @@ jobs:
           rm -f ./ready-libs/*-sources.jar ./ready-libs/*-dev.jar ./ready-libs/*-slim.jar
 
       - name: Publish to Modrinth
-        uses: modrinth/minotaur@v2.8.7
+        uses: Kir-Antipov/mc-publish@v2
         with:
-          token: ${{ secrets.MODRINTH_TOKEN }}
-          project-id: "xqd2bMI8"
-          version-number: ${{ needs.build-and-pack.outputs.tag_name }}
-          version-title: "MTR Rail Works ${{ needs.build-and-pack.outputs.tag_name }}"
+          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+          modrinth-id: "xqd2bMI8"
           version-type: ${{ github.event_name == 'workflow_dispatch' && 'beta' || 'release' }}
+          version: ${{ needs.build-and-pack.outputs.tag_name }}
           files: |
             ./ready-libs/*.jar
           game-versions: |
