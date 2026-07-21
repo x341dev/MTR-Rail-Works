@@ -106,7 +106,27 @@ jobs:
             else
               TAG="v${GRADLE_VERSION}"
             fi
-            CHANGELOG="Manual ${{ github.event.inputs.release_type }} build of ${TAG}."
+
+            git fetch --tags --force origin >/dev/null 2>&1 || true
+
+            if [ "${{ github.event.inputs.release_type }}" = "release" ]; then
+              # Compare against the last stable (non-alpha/beta) release tag.
+              PREV_TAG=$(git tag --sort=-creatordate | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | grep -v -x "$TAG" | head -n1)
+            else
+              # Compare against the last tag of any kind (release, beta, or alpha).
+              PREV_TAG=$(git tag --sort=-creatordate | grep -v -x "$TAG" | head -n1)
+            fi
+
+            if [ -n "$PREV_TAG" ]; then
+              COMMITS=$(git log --pretty=format:'- %s' "${PREV_TAG}..HEAD")
+              if [ -n "$COMMITS" ]; then
+                CHANGELOG=$(printf 'Changes since %s:\n\n%s' "$PREV_TAG" "$COMMITS")
+              else
+                CHANGELOG="No changes since ${PREV_TAG}."
+              fi
+            else
+              CHANGELOG="Manual ${{ github.event.inputs.release_type }} build of ${TAG}."
+            fi
           fi
           VERSION_NUMBER="${TAG#v}"
           DELIMITER="CHANGELOG_EOF_${GITHUB_RUN_ID}_${{ matrix.minecraft_version }}"
