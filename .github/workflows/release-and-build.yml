@@ -156,3 +156,41 @@ jobs:
               fi
             fi
           done
+          
+  publish-modrinth:
+    name: Publish to Modrinth
+    needs: [release-please, build-and-pack, publish-github-release]
+    if: ${{ needs.release-please.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: mtr-rail-works-jars-*
+          path: ./ready-libs
+          merge-multiple: true
+  
+      - name: Clean Extra Jars
+        run: |
+          rm -f ./ready-libs/*-sources.jar ./ready-libs/*-dev.jar ./ready-libs/*-slim.jar
+  
+      - name: Publish to Modrinth
+        uses: modrinth/minotaur@v2
+        with:
+          token: ${{ secrets.MODRINTH_TOKEN }}
+          project-id: "xqd2bMI8"
+          version-number: ${{ needs.build-and-pack.outputs.tag_name }}
+          version-title: "MTR Rail Works ${{ needs.build-and-pack.outputs.tag_name }}"
+          version-type: ${{ github.event_name == 'workflow_dispatch' && 'beta' || 'release' }}
+          files: |
+            ./ready-libs/*.jar
+          game-versions: |
+            1.17.1
+            1.18.2
+            1.19.2
+            1.19.4
+            1.20.1
+            1.20.4
+          loaders: |
+            fabric
+            forge
