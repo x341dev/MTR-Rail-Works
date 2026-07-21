@@ -169,13 +169,13 @@ jobs:
           pattern: mtr-rail-works-jars-*
           path: ./ready-libs
           merge-multiple: true
-  
+
       - name: Clean Extra Jars
         run: |
           rm -f ./ready-libs/*-sources.jar ./ready-libs/*-dev.jar ./ready-libs/*-slim.jar
-  
+
       - name: Publish to Modrinth
-        uses: modrinth/minotaur@v2.8.10
+        uses: modrinth/minotaur@v2.8.7
         with:
           token: ${{ secrets.MODRINTH_TOKEN }}
           project-id: "xqd2bMI8"
