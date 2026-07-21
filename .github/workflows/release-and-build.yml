@@ -175,7 +175,7 @@ jobs:
           rm -f ./ready-libs/*-sources.jar ./ready-libs/*-dev.jar ./ready-libs/*-slim.jar
   
       - name: Publish to Modrinth
-        uses: modrinth/minotaur@v2
+        uses: modrinth/minotaur@v2.8.10
         with:
           token: ${{ secrets.MODRINTH_TOKEN }}
           project-id: "xqd2bMI8"
