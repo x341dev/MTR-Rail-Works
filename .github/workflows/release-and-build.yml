@@ -175,14 +175,14 @@ jobs:
           rm -f ./ready-libs/*-sources.jar ./ready-libs/*-dev.jar ./ready-libs/*-slim.jar
 
       - name: Publish to Modrinth
-        uses: Kir-Antipov/mc-publish@v2
+        uses: Kira-NT/mc-publish@v3
         with:
-          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
           modrinth-id: "xqd2bMI8"
-          version-type: ${{ github.event_name == 'workflow_dispatch' && 'beta' || 'release' }}
+          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+          name: "MTR Rail Works ${{ needs.build-and-pack.outputs.tag_name }}"
           version: ${{ needs.build-and-pack.outputs.tag_name }}
-          files: |
-            ./ready-libs/*.jar
+          version-type: ${{ github.event_name == 'workflow_dispatch' && 'beta' || 'release' }}
+          files: ./ready-libs/*.jar
           game-versions: |
             1.17.1
             1.18.2
@@ -193,3 +193,5 @@ jobs:
           loaders: |
             fabric
             forge
+          retry-attempts: 2
+          retry-delay: 10000
