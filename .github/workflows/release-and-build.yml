@@ -16,9 +16,14 @@ on:
           - alpha
         default: beta
       version_suffix:
-        description: 'Optional version suffix (ex. beta.1). Leave blank to use gradle.properties version as-is.'
+        description: 'Optional version suffix (ex. beta.1). Leave blank to auto-number when bumping, or to build gradle.properties version as-is when not bumping.'
         required: false
         type: string
+      bump_version:
+        description: 'Bump the version before building. Opens a PR with the version bump (mirrors release-please) instead of building immediately — merging that PR triggers the actual build/tag/publish. If unchecked, this re-releases/rebuilds the current gradle.properties version right away.'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -41,19 +46,282 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+  detect-manual-release:
+    name: Detect Merged Manual Release
+    if: ${{ github.event_name == 'push' }}
+    runs-on: ubuntu-latest
+    outputs:
+      pending: ${{ steps.detect.outputs.pending }}
+      tag_name: ${{ steps.detect.outputs.tag_name }}
+      version_number: ${{ steps.detect.outputs.version_number }}
+      changelog: ${{ steps.detect.outputs.changelog }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Detect Pending Manual Release
+        id: detect
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ ! -f .github/manual-release-pending.json ]; then
+            echo "No pending manual release marker found."
+            echo "pending=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          TAG=$(jq -r '.tag' .github/manual-release-pending.json)
+          VERSION_NUMBER=$(jq -r '.version_number' .github/manual-release-pending.json)
+          CHANGELOG=$(jq -r '.changelog' .github/manual-release-pending.json)
+
+          # Idempotency guard: if this tag was already released, the PR that carried
+          # this marker was already merged & shipped in a prior run, so skip it.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists, nothing pending."
+            echo "pending=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "pending=true" >> "$GITHUB_OUTPUT"
+          echo "tag_name=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version_number=$VERSION_NUMBER" >> "$GITHUB_OUTPUT"
+          DELIMITER="CHANGELOG_EOF_${GITHUB_RUN_ID}"
+          echo "changelog<<$DELIMITER" >> "$GITHUB_OUTPUT"
+          echo "$CHANGELOG" >> "$GITHUB_OUTPUT"
+          echo "$DELIMITER" >> "$GITHUB_OUTPUT"
+
+  prepare-manual-release:
+    name: Prepare Manual Release
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    outputs:
+      tag_name: ${{ steps.prepare.outputs.tag_name }}
+      version_number: ${{ steps.prepare.outputs.version_number }}
+      changelog: ${{ steps.prepare.outputs.changelog }}
+      pr_url: ${{ steps.prepare.outputs.pr_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref_name }}
+
+      - name: Compute Version, Changelog & (if bumping) Open PR
+        id: prepare
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TYPE: ${{ github.event.inputs.release_type }}
+          VERSION_SUFFIX: ${{ github.event.inputs.version_suffix }}
+          BUMP_VERSION: ${{ github.event.inputs.bump_version }}
+          BASE_BRANCH: ${{ github.ref_name }}
+        run: |
+          set -e
+          git fetch --tags --force origin >/dev/null 2>&1 || true
+
+          GRADLE_VERSION=$(grep -E '^(mod_version|version)[[:space:]]*=[[:space:]]*' gradle.properties | cut -d= -f2 | tr -d '[:space:]' | tr -d '\r')
+          LAST_STABLE_TAG=$(git tag --sort=-creatordate | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)
+
+          if [ "$BUMP_VERSION" = "true" ]; then
+            BASE_VERSION="${LAST_STABLE_TAG#v}"
+            if [ -z "$BASE_VERSION" ]; then
+              BASE_VERSION="$GRADLE_VERSION"
+            fi
+
+            if [ -n "$LAST_STABLE_TAG" ]; then
+              COMMIT_RANGE="${LAST_STABLE_TAG}..HEAD"
+            else
+              COMMIT_RANGE="HEAD"
+            fi
+            SUBJECTS=$(git log --pretty=format:'%s%n%b' "$COMMIT_RANGE")
+
+            # Conventional-commit bump level, same rule release-please uses: breaking > feat > fix.
+            BUMP=patch
+            if echo "$SUBJECTS" | grep -qE '^[a-zA-Z]+(\([^)]*\))?!:|BREAKING CHANGE:'; then
+              BUMP=major
+            elif echo "$SUBJECTS" | grep -qE '^feat(\([^)]*\))?:'; then
+              BUMP=minor
+            fi
+
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE_VERSION"
+            case "$BUMP" in
+              major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+              minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+              patch) PATCH=$((PATCH + 1)) ;;
+            esac
+            NEW_BASE_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+
+            if [ "$RELEASE_TYPE" = "release" ]; then
+              NEW_VERSION="$NEW_BASE_VERSION"
+            elif [ -n "$VERSION_SUFFIX" ]; then
+              NEW_VERSION="${NEW_BASE_VERSION}-${VERSION_SUFFIX}"
+            else
+              LAST_N=$(git tag | grep -E "^v${NEW_BASE_VERSION}-${RELEASE_TYPE}\.[0-9]+$" | sed -E "s/^v${NEW_BASE_VERSION}-${RELEASE_TYPE}\.([0-9]+)$/\1/" | sort -n | tail -n1)
+              NEXT_N=$(( ${LAST_N:-0} + 1 ))
+              NEW_VERSION="${NEW_BASE_VERSION}-${RELEASE_TYPE}.${NEXT_N}"
+            fi
+            TAG="v${NEW_VERSION}"
+          else
+            if [ -n "$VERSION_SUFFIX" ]; then
+              TAG="v${GRADLE_VERSION}-${VERSION_SUFFIX}"
+            else
+              TAG="v${GRADLE_VERSION}"
+            fi
+          fi
+
+          VERSION_NUMBER="${TAG#v}"
+
+          if [ "$RELEASE_TYPE" = "release" ]; then
+            # Compare against the last stable (non-alpha/beta) release tag.
+            COMPARE_TAG=$(git tag --sort=-creatordate | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | grep -v -x "$TAG" | head -n1)
+          else
+            # Compare against the last tag of any kind (release, beta, or alpha).
+            COMPARE_TAG=$(git tag --sort=-creatordate | grep -v -x "$TAG" | head -n1)
+          fi
+
+          if [ -n "$COMPARE_TAG" ]; then
+            RANGE="${COMPARE_TAG}..HEAD"
+          else
+            RANGE="HEAD"
+          fi
+
+          # Categorized (Conventional Commits style) changelog instead of a raw commit dump.
+          FEATURES=$(git log --pretty=format:'%s' "$RANGE" | grep -E '^feat(\([^)]*\))?:' | sed -E 's/^feat(\([^)]*\))?:[[:space:]]*/- /')
+          FIXES=$(git log --pretty=format:'%s' "$RANGE" | grep -E '^fix(\([^)]*\))?:' | sed -E 's/^fix(\([^)]*\))?:[[:space:]]*/- /')
+          OTHERS=$(git log --pretty=format:'%s' "$RANGE" | grep -vE '^(feat|fix)(\([^)]*\))?:' | sed -E 's/^/- /')
+
+          SECTIONS=""
+          if [ -n "$FEATURES" ]; then
+            SECTIONS="${SECTIONS}### Features\n${FEATURES}\n\n"
+          fi
+          if [ -n "$FIXES" ]; then
+            SECTIONS="${SECTIONS}### Bug Fixes\n${FIXES}\n\n"
+          fi
+          if [ -n "$OTHERS" ]; then
+            SECTIONS="${SECTIONS}### Other Changes\n${OTHERS}\n\n"
+          fi
+          CHANGELOG=$(printf '%b' "$SECTIONS")
+
+          if [ -z "$CHANGELOG" ]; then
+            if [ -n "$COMPARE_TAG" ]; then
+              CHANGELOG="No changes since ${COMPARE_TAG}."
+            else
+              CHANGELOG="Manual ${RELEASE_TYPE} build of ${TAG}."
+            fi
+          fi
+
+          PR_URL=""
+
+          if [ "$BUMP_VERSION" = "true" ]; then
+            # main requires PRs, so we can't push the bump directly: open a PR carrying
+            # the bump + a marker file. Merging it is what actually triggers the release,
+            # mirroring how merging release-please's own PR triggers its release.
+            sed -i -E "s/^(mod_version|version)([[:space:]]*=[[:space:]]*).*/\1\2${NEW_BASE_VERSION}/" gradle.properties
+            if [ -f .release-please-manifest.json ]; then
+              jq --arg v "$NEW_BASE_VERSION" '.["."] = $v' .release-please-manifest.json > .release-please-manifest.json.tmp
+              mv .release-please-manifest.json.tmp .release-please-manifest.json
+            fi
+            jq -n --arg tag "$TAG" --arg version "$VERSION_NUMBER" --arg changelog "$CHANGELOG" \
+              '{tag: $tag, version_number: $version, changelog: $changelog}' \
+              > .github/manual-release-pending.json
+
+            BRANCH="manual-release/${VERSION_NUMBER}"
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git checkout -B "$BRANCH"
+            git add gradle.properties .github/manual-release-pending.json
+            if [ -f .release-please-manifest.json ]; then
+              git add .release-please-manifest.json
+            fi
+            git commit -m "chore(main): bump version to ${NEW_BASE_VERSION} for manual ${RELEASE_TYPE} release"
+            git push --force origin "HEAD:refs/heads/${BRANCH}"
+
+            PR_BODY=$(printf 'Bumps the version to `%s` for a manual **%s** release.\n\nMerging this PR into `%s` will automatically build, tag (`%s`), and publish this release.\n\n---\n\n%s\n' \
+              "$NEW_BASE_VERSION" "$RELEASE_TYPE" "$BASE_BRANCH" "$TAG" "$CHANGELOG")
+
+            EXISTING_PR=$(gh pr list --head "$BRANCH" --base "$BASE_BRANCH" --state open --json number --jq '.[0].number // empty' || true)
+            if [ -n "$EXISTING_PR" ]; then
+              gh pr edit "$EXISTING_PR" --title "chore(main): bump version to ${NEW_BASE_VERSION} for manual ${RELEASE_TYPE} release" --body "$PR_BODY"
+              PR_URL=$(gh pr view "$EXISTING_PR" --json url --jq '.url')
+            else
+              PR_URL=$(gh pr create --base "$BASE_BRANCH" --head "$BRANCH" --title "chore(main): bump version to ${NEW_BASE_VERSION} for manual ${RELEASE_TYPE} release" --body "$PR_BODY")
+            fi
+
+            echo "Opened/updated release PR: $PR_URL"
+            echo "tag_name=" >> "$GITHUB_OUTPUT"
+            echo "version_number=" >> "$GITHUB_OUTPUT"
+            echo "changelog=" >> "$GITHUB_OUTPUT"
+            echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag_name=$TAG" >> "$GITHUB_OUTPUT"
+            echo "version_number=$VERSION_NUMBER" >> "$GITHUB_OUTPUT"
+            DELIMITER="CHANGELOG_EOF_${GITHUB_RUN_ID}"
+            echo "changelog<<$DELIMITER" >> "$GITHUB_OUTPUT"
+            echo "$CHANGELOG" >> "$GITHUB_OUTPUT"
+            echo "$DELIMITER" >> "$GITHUB_OUTPUT"
+            echo "pr_url=" >> "$GITHUB_OUTPUT"
+          fi
+
+  resolve-release:
+    name: Resolve Release Info
+    needs: [release-please, detect-manual-release, prepare-manual-release]
+    if: >-
+      ${{ !cancelled() && (
+        needs.release-please.outputs.release_created == 'true' ||
+        needs.detect-manual-release.outputs.pending == 'true' ||
+        (github.event_name == 'workflow_dispatch' && needs.prepare-manual-release.outputs.tag_name != '')
+      ) }}
+    runs-on: ubuntu-latest
+    outputs:
+      tag_name: ${{ steps.resolve.outputs.tag_name }}
+      version_number: ${{ steps.resolve.outputs.version_number }}
+      changelog: ${{ steps.resolve.outputs.changelog }}
+    steps:
+      - name: Resolve Tag, Version & Changelog
+        id: resolve
+        env:
+          RELEASE_CREATED: ${{ needs.release-please.outputs.release_created }}
+          RP_TAG: ${{ needs.release-please.outputs.tag_name }}
+          RP_BODY: ${{ needs.release-please.outputs.body }}
+          PENDING: ${{ needs.detect-manual-release.outputs.pending }}
+          PENDING_TAG: ${{ needs.detect-manual-release.outputs.tag_name }}
+          PENDING_VERSION: ${{ needs.detect-manual-release.outputs.version_number }}
+          PENDING_CHANGELOG: ${{ needs.detect-manual-release.outputs.changelog }}
+          MANUAL_TAG: ${{ needs.prepare-manual-release.outputs.tag_name }}
+          MANUAL_VERSION: ${{ needs.prepare-manual-release.outputs.version_number }}
+          MANUAL_CHANGELOG: ${{ needs.prepare-manual-release.outputs.changelog }}
+        run: |
+          if [ "$RELEASE_CREATED" = "true" ]; then
+            TAG="$RP_TAG"
+            CHANGELOG="$RP_BODY"
+          elif [ "$PENDING" = "true" ]; then
+            TAG="$PENDING_TAG"
+            CHANGELOG="$PENDING_CHANGELOG"
+          else
+            TAG="$MANUAL_TAG"
+            CHANGELOG="$MANUAL_CHANGELOG"
+          fi
+          VERSION_NUMBER="${TAG#v}"
+
+          DELIMITER="CHANGELOG_EOF_${GITHUB_RUN_ID}"
+          echo "tag_name=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version_number=$VERSION_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "changelog<<$DELIMITER" >> "$GITHUB_OUTPUT"
+          echo "$CHANGELOG" >> "$GITHUB_OUTPUT"
+          echo "$DELIMITER" >> "$GITHUB_OUTPUT"
+
   build-and-pack:
     name: Build & Pack (MC ${{ matrix.minecraft_version }})
-    needs: release-please
-    if: ${{ !cancelled() && (needs.release-please.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch') }}
+    needs: resolve-release
+    if: ${{ !cancelled() && needs.resolve-release.outputs.tag_name != '' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         minecraft_version: [1.17.1, 1.18.2, 1.19.2, 1.19.4, 1.20.1, 1.20.4]
     outputs:
-      tag_name: ${{ steps.determine-tag.outputs.tag_name }}
-      version_number: ${{ steps.determine-tag.outputs.version_number }}
-      changelog: ${{ steps.determine-tag.outputs.changelog }}
+      tag_name: ${{ needs.resolve-release.outputs.tag_name }}
+      version_number: ${{ needs.resolve-release.outputs.version_number }}
+      changelog: ${{ needs.resolve-release.outputs.changelog }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -91,52 +359,6 @@ jobs:
             exit 1
           fi
 
-      - name: Determine Tag Name & Changelog
-        id: determine-tag
-        env:
-          RELEASE_PLEASE_BODY: ${{ needs.release-please.outputs.body }}
-        run: |
-          if [ "${{ needs.release-please.outputs.release_created }}" = "true" ]; then
-            TAG="${{ needs.release-please.outputs.tag_name }}"
-            CHANGELOG="$RELEASE_PLEASE_BODY"
-          else
-            SUFFIX="${{ github.event.inputs.version_suffix }}"
-            if [ -n "$SUFFIX" ]; then
-              TAG="v${GRADLE_VERSION}-${SUFFIX}"
-            else
-              TAG="v${GRADLE_VERSION}"
-            fi
-
-            git fetch --tags --force origin >/dev/null 2>&1 || true
-
-            if [ "${{ github.event.inputs.release_type }}" = "release" ]; then
-              # Compare against the last stable (non-alpha/beta) release tag.
-              PREV_TAG=$(git tag --sort=-creatordate | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | grep -v -x "$TAG" | head -n1)
-            else
-              # Compare against the last tag of any kind (release, beta, or alpha).
-              PREV_TAG=$(git tag --sort=-creatordate | grep -v -x "$TAG" | head -n1)
-            fi
-
-            if [ -n "$PREV_TAG" ]; then
-              COMMITS=$(git log --pretty=format:'- %s' "${PREV_TAG}..HEAD")
-              if [ -n "$COMMITS" ]; then
-                CHANGELOG=$(printf 'Changes since %s:\n\n%s' "$PREV_TAG" "$COMMITS")
-              else
-                CHANGELOG="No changes since ${PREV_TAG}."
-              fi
-            else
-              CHANGELOG="Manual ${{ github.event.inputs.release_type }} build of ${TAG}."
-            fi
-          fi
-          VERSION_NUMBER="${TAG#v}"
-          DELIMITER="CHANGELOG_EOF_${GITHUB_RUN_ID}_${{ matrix.minecraft_version }}"
-
-          echo "tag_name=$TAG" >> "$GITHUB_OUTPUT"
-          echo "version_number=$VERSION_NUMBER" >> "$GITHUB_OUTPUT"
-          echo "changelog<<$DELIMITER" >> "$GITHUB_OUTPUT"
-          echo "$CHANGELOG" >> "$GITHUB_OUTPUT"
-          echo "$DELIMITER" >> "$GITHUB_OUTPUT"
-
       - name: Grant Execute Permission to Gradle Wrapper
         run: chmod +x gradlew
 
@@ -163,8 +385,8 @@ jobs:
 
   publish-github-release:
     name: Upload to GitHub Release Assets
-    needs: [release-please, build-and-pack]
-    if: ${{ !cancelled() && (needs.release-please.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch') }}
+    needs: [resolve-release, build-and-pack]
+    if: ${{ !cancelled() && needs.resolve-release.outputs.tag_name != '' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -180,14 +402,13 @@ jobs:
           merge-multiple: true
 
       - name: Create or Update Release
-        if: ${{ github.event_name == 'workflow_dispatch' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CHANGELOG: ${{ needs.build-and-pack.outputs.changelog }}
         run: |
           TAG="${{ needs.build-and-pack.outputs.tag_name }}"
           IS_PRERELEASE=false
-          if [ "${{ github.event.inputs.release_type }}" != "release" ]; then
+          if [[ "$TAG" == *-beta* || "$TAG" == *-alpha* ]]; then
             IS_PRERELEASE=true
           fi
           printf '%s\n' "$CHANGELOG" > /tmp/changelog.md
@@ -214,8 +435,8 @@ jobs:
 
   publish-modrinth:
     name: Publish to Modrinth (${{ matrix.loader }} ${{ matrix.minecraft_version }})
-    needs: [release-please, build-and-pack, publish-github-release]
-    if: ${{ !cancelled() && (needs.release-please.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch') }}
+    needs: [resolve-release, build-and-pack, publish-github-release]
+    if: ${{ !cancelled() && needs.resolve-release.outputs.tag_name != '' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -229,6 +450,18 @@ jobs:
           name: mtr-rail-works-jars-${{ matrix.minecraft_version }}
           path: ./ready-libs
 
+      - name: Determine Version Type
+        id: version-type
+        run: |
+          TAG="${{ needs.build-and-pack.outputs.tag_name }}"
+          if [[ "$TAG" == *-beta* ]]; then
+            echo "type=beta" >> "$GITHUB_OUTPUT"
+          elif [[ "$TAG" == *-alpha* ]]; then
+            echo "type=alpha" >> "$GITHUB_OUTPUT"
+          else
+            echo "type=release" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Publish to Modrinth
         uses: Kira-NT/mc-publish@v3
         with:
@@ -236,7 +469,7 @@ jobs:
           modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
           name: "MTR Rail Works ${{ needs.build-and-pack.outputs.tag_name }} for ${{ matrix.loader }} ${{ matrix.minecraft_version }}"
           version: ${{ needs.build-and-pack.outputs.version_number }}
-          version-type: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release_type || 'release' }}
+          version-type: ${{ steps.version-type.outputs.type }}
           changelog: ${{ needs.build-and-pack.outputs.changelog }}
           files: ./ready-libs/*-${{ matrix.loader }}-*.jar
           game-versions: ${{ matrix.minecraft_version }}
