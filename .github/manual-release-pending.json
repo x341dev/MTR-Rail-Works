@@ -1,0 +1,5 @@
+{
+  "tag": "v0.2.3-beta.1",
+  "version_number": "0.2.3-beta.1",
+  "changelog": "### Bug Fixes\n- resolve Rail Worker wall side by pair position, not selection order"
+}
