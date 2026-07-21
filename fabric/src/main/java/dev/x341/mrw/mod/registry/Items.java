@@ -22,7 +22,7 @@ public final class Items {
         BRIDGE_WALL_CREATOR_3_5 = Init.REGISTRY.registerItem(new Identifier(Init.MOD_ID, "bridge_wall_creator_3_5"), itemSettings -> new Item(new ItemBridgeWallCreator(3, 5, itemSettings)), CreativeModeTabs.RAIL_WORKS);
         BRIDGE_WALL_CREATOR_3_7 = Init.REGISTRY.registerItem(new Identifier(Init.MOD_ID, "bridge_wall_creator_3_7"), itemSettings -> new Item(new ItemBridgeWallCreator(3, 7, itemSettings)), CreativeModeTabs.RAIL_WORKS);
         BRIDGE_WALL_CREATOR_3_9 = Init.REGISTRY.registerItem(new Identifier(Init.MOD_ID, "bridge_wall_creator_3_9"), itemSettings -> new Item(new ItemBridgeWallCreator(3, 9, itemSettings)), CreativeModeTabs.RAIL_WORKS);
-        RAIL_WORKER = Init.REGISTRY.registerItem(new Identifier(Init.MOD_ID, "rail_worker"), itemSettings -> new Item(new ItemRailWorker(itemSettings)), CreativeModeTabs.RAIL_WORKS);
+        RAIL_WORKER = Init.REGISTRY.registerItem(new Identifier(Init.MOD_ID, "rail_worker"), itemSettings -> new Item(new ItemRailWorker(itemSettings.maxCount(1))), CreativeModeTabs.RAIL_WORKS);
     }
 
     public static final ItemRegistryObject BRIDGE_WALL_CREATOR_1_3;
