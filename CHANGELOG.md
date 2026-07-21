@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.2.2](https://github.com/x341dev/MTR-Rail-Works/compare/v0.2.1...v0.2.2) (2026-07-21)
+
+
+### Bug Fixes
+
+* adjust Rail Worker configuration screen layout and checkbox behavior ([c02ad6b](https://github.com/x341dev/MTR-Rail-Works/commit/c02ad6b598126a421a934cfd814bb9bc2e7d6c0f))
+* make Rail Worker non-stackable ([43ff8bf](https://github.com/x341dev/MTR-Rail-Works/commit/43ff8bfab46d76aa6f367c13b17da86e97cd9334))
+* stop Rail Worker walls from racing MTR's tunnel-clear queue ([49916b3](https://github.com/x341dev/MTR-Rail-Works/commit/49916b37c52ddf1cdba51a1c56d7f2dc51e8f51a))
+
 ## [0.2.1](https://github.com/x341dev/MTR-Rail-Works/compare/v0.2.0...v0.2.1) (2026-07-20)
 
 
