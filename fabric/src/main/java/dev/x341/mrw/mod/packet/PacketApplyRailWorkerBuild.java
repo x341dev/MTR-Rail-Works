@@ -3,6 +3,7 @@ package dev.x341.mrw.mod.packet;
 import dev.x341.mrw.mod.data.RailWorkerMode;
 import dev.x341.mrw.mod.data.WallSide;
 import dev.x341.mrw.mod.item.ItemRailWorker;
+import org.mtr.core.tool.Vector;
 import org.mtr.libraries.it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.mtr.libraries.it.unimi.dsi.fastutil.objects.ObjectObjectImmutablePair;
 import org.mtr.mapping.holder.BlockPos;
@@ -113,9 +114,30 @@ public final class PacketApplyRailWorkerBuild extends PacketHandler {
 		// shared nominal side would put both walls on the same absolute side of their own track —
 		// correct for one pair but leaving the other's wall facing the middle, between the tracks,
 		// instead of outward. Mirroring the nominal side puts both walls on the outward-facing side
-		// for the common case of two parallel tracks.
-		final int pair1WallSide = pair2Path == null ? WallSide.BOTH : WallSide.LEFT;
-		final int pair2WallSide = WallSide.RIGHT;
+		// for the common case of two parallel tracks — but only if pair1 is nominally "left" of
+		// pair2 to begin with. Which pair the player selects first has no relation to which track
+		// is physically on the left, so the mirrored side must be picked based on pair2's actual
+		// position relative to pair1, not hardcoded, or a first-pair-on-the-right selection ends up
+		// with both walls facing inward instead of outward.
+		final int pair1WallSide;
+		final int pair2WallSide;
+		if (pair2Path == null) {
+			pair1WallSide = WallSide.BOTH;
+			pair2WallSide = WallSide.BOTH;
+		} else {
+			// Same "left" definition RailActionMrw#isRailAgainstNodeOffset resolves WallSide.LEFT to:
+			// pair1's own click direction rotated 90 degrees. If pair2 sits on that side of pair1,
+			// pair1's outward (away-from-pair2) side is actually the nominal right, and pair2's is
+			// the nominal left; otherwise it's the other way around (the common-case assumption the
+			// old hardcoded assignment made).
+			final Vector forward = new Vector(pair1End.getX() - pair1Start.getX(), 0, pair1End.getZ() - pair1Start.getZ());
+			final Vector left = forward.normalize().rotateY((float) Math.PI / 2);
+			final double toPair2X = pair2Start.getX() - pair1Start.getX();
+			final double toPair2Z = pair2Start.getZ() - pair1Start.getZ();
+			final boolean pair2IsLeftOfPair1 = left.x * toPair2X + left.z * toPair2Z > 0;
+			pair1WallSide = pair2IsLeftOfPair1 ? WallSide.RIGHT : WallSide.LEFT;
+			pair2WallSide = pair2IsLeftOfPair1 ? WallSide.LEFT : WallSide.RIGHT;
+		}
 
 		applyPair(serverPlayerEntity, pair1Path, pair1Start, pair1End, mode, replace, radius, height, floorState, wallState, sidesOnly, anyWalls, pair1WallSide);
 		if (pair2Path != null) {
