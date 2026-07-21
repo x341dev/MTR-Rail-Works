@@ -28,6 +28,7 @@ subprojects {
         mavenCentral()
         flatDir { dirs "${rootDir}/libs" }
         maven { url = "https://repo.codemc.org/repository/maven-public" }
+        maven { url = "https://maven.terraformersmc.com/releases/" }
         maven { url = "https://api.modrinth.com/maven/" }
     }
 
