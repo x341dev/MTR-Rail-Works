@@ -37,12 +37,19 @@ public class RailActionMrw {
 	private final boolean replace;
 	private final double length;
 	private final BlockState state;
+	private final boolean waitForVanillaTunnelQueue;
 	private final ObjectOpenHashSet<BlockPos> blacklistedPositions = new ObjectOpenHashSet<>();
 
 	private static final double INCREMENT = 0.1;
+	// rail.railMath.getPosition() runs curved segments through spline/trig math (unlike straight
+	// segments, which interpolate linearly), so a rail that is vertically flat can still come back
+	// with a y like 5.999999999997 instead of an exact 6.0. Comparing that against Math.floor/ceil
+	// exactly made whether the top wall block got included flicker block-to-block along a curve,
+	// even though every sample is meant to be at the same whole-number height.
+	private static final double WHOLE_NUMBER_EPSILON = 1e-6;
 
 	public RailActionMrw(ServerWorld serverWorld, ServerPlayerEntity serverPlayerEntity, RailActionType railActionType, Rail rail, int radius, int height, @Nullable BlockState state, int wallSide) {
-		this(serverWorld, serverPlayerEntity, railActionType, rail, radius, height, state, wallSide, isRailAgainstPlayerFacing(serverPlayerEntity, rail), false, false);
+		this(serverWorld, serverPlayerEntity, railActionType, rail, radius, height, state, wallSide, isRailAgainstPlayerFacing(serverPlayerEntity, rail), false, false, false);
 	}
 
 	/**
@@ -51,12 +58,25 @@ public class RailActionMrw {
 	 * segment's pair, rather than from the player's facing at build time ({@link #isRailAgainstPlayerFacing}).
 	 * Rail Worker's node pairs can be disconnected from where the player is standing (or built later,
 	 * from a saved macro), so a facing-based side has no reliable meaning here.
+	 *
+	 * @param waitForVanillaTunnelQueue when the same Rail Worker build also queued a vanilla MTR
+	 *                                  tunnel-clear action for this rail, that action runs on its own
+	 *                                  independent, separately-ticked queue ({@code org.mtr.mod.data.RailActionModule}),
+	 *                                  not this one. Both queues process a couple of milliseconds per
+	 *                                  tick, so without coordination they progress concurrently, and
+	 *                                  the tunnel-clear can strip out wall blocks placed at its shared
+	 *                                  edge before it has swept past that column — producing an
+	 *                                  order-dependent, jagged wall (worse on tight curves, where the
+	 *                                  two queues' progress along the rail diverges more per tick).
+	 *                                  When set, {@link #build()} holds off starting until the vanilla
+	 *                                  queue (checked via {@link dev.x341.mrw.mod.mixin.RailActionModuleAccessor})
+	 *                                  is empty.
 	 */
-	public RailActionMrw(ServerWorld serverWorld, ServerPlayerEntity serverPlayerEntity, RailActionType railActionType, Rail rail, int radius, int height, @Nullable BlockState state, int wallSide, BlockPos pairStart, BlockPos pairEnd, boolean sidesOnly, boolean replace) {
-		this(serverWorld, serverPlayerEntity, railActionType, rail, radius, height, state, wallSide, isRailAgainstNodeOffset(pairStart, pairEnd, rail), sidesOnly, replace);
+	public RailActionMrw(ServerWorld serverWorld, ServerPlayerEntity serverPlayerEntity, RailActionType railActionType, Rail rail, int radius, int height, @Nullable BlockState state, int wallSide, BlockPos pairStart, BlockPos pairEnd, boolean sidesOnly, boolean replace, boolean waitForVanillaTunnelQueue) {
+		this(serverWorld, serverPlayerEntity, railActionType, rail, radius, height, state, wallSide, isRailAgainstNodeOffset(pairStart, pairEnd, rail), sidesOnly, replace, waitForVanillaTunnelQueue);
 	}
 
-	private RailActionMrw(ServerWorld serverWorld, ServerPlayerEntity serverPlayerEntity, RailActionType railActionType, Rail rail, int radius, int height, @Nullable BlockState state, int wallSide, boolean invertWallSide, boolean sidesOnly, boolean replace) {
+	private RailActionMrw(ServerWorld serverWorld, ServerPlayerEntity serverPlayerEntity, RailActionType railActionType, Rail rail, int radius, int height, @Nullable BlockState state, int wallSide, boolean invertWallSide, boolean sidesOnly, boolean replace, boolean waitForVanillaTunnelQueue) {
 		id = new Random().nextLong();
 		this.serverWorld = serverWorld;
 		uuid = serverPlayerEntity.getUuid();
@@ -70,6 +90,7 @@ public class RailActionMrw {
 		this.sidesOnly = sidesOnly;
 		this.replace = replace;
 		this.state = state;
+		this.waitForVanillaTunnelQueue = waitForVanillaTunnelQueue;
 		length = rail.railMath.getLength();
 		distance = 0;
 		RailActionBatchTracker.onEnqueue(uuid);
@@ -117,6 +138,20 @@ public class RailActionMrw {
 		return railActionType.color;
 	}
 
+	/**
+	 * Only meaningful before the build has started (see {@link #waitForVanillaTunnelQueue}'s
+	 * javadoc): once {@link #distance} has moved off 0, the build is left to run to completion
+	 * even if the vanilla queue picks up unrelated work afterward.
+	 */
+	public boolean isBlockedByVanillaTunnelQueue() {
+		if (!waitForVanillaTunnelQueue || distance > 0) {
+			return false;
+		}
+		final boolean[] blocked = {false};
+		Init.getRailActionModule(serverWorld, module -> blocked[0] = !((dev.x341.mrw.mod.mixin.RailActionModuleAccessor) module).mrw$getRailActions().isEmpty());
+		return blocked[0];
+	}
+
 	public boolean build() {
 		switch (railActionType) {
 			case TUNNEL_WALL:
@@ -146,7 +181,15 @@ public class RailActionMrw {
 	}
 
 	private void place(BlockPos blockPos, boolean replace) {
-		if (blacklistedPositions.contains(blockPos) || !canPlace(serverWorld, blockPos)) {
+		if (blacklistedPositions.contains(blockPos)) {
+			return;
+		}
+		if (!canPlace(serverWorld, blockPos)) {
+			if (dev.x341.mrw.mod.MrwDebug.isEnabled()) {
+				final boolean hasBlockEntity = serverWorld.getBlockEntity(blockPos) != null;
+				final boolean isBlockNode = serverWorld.getBlockState(blockPos).getBlock().data instanceof BlockNode;
+				dev.x341.mrw.mod.Init.LOGGER.info("[MRW debug] wall placement rejected: pos={} hasBlockEntity={} isBlockNode={} existingState={}", blockPos, hasBlockEntity, isBlockNode, serverWorld.getBlockState(blockPos));
+			}
 			return;
 		}
 		if (replace && serverWorld.getBlockState(blockPos).isAir()) {
@@ -166,7 +209,7 @@ public class RailActionMrw {
 
 			for (double x = -radius; x <= radius; x += INCREMENT) {
 				final Vector editPos = pos1.add(vec3.multiply(x, 0, x));
-				final boolean wholeNumber = Math.floor(editPos.y) == Math.ceil(editPos.y);
+				final boolean wholeNumber = Math.abs(editPos.y - Math.round(editPos.y)) < WHOLE_NUMBER_EPSILON;
 				final boolean isEdge = Math.abs(x) > radius - INCREMENT || radius == 0;
 				// wallSide restricts building to one edge of the rail (LEFT = negative x offset,
 				// flipped by invertWallSide to keep left/right matching the player's point of view)

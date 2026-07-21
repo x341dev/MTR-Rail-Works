@@ -23,7 +23,14 @@ public class RailActionModuleMrw {
 	}
 
 	public void tick() {
-		if (!railActions.isEmpty() && railActions.get(0).build()) {
+		if (railActions.isEmpty()) {
+			return;
+		}
+		final RailActionMrw head = railActions.get(0);
+		if (head.isBlockedByVanillaTunnelQueue()) {
+			return;
+		}
+		if (head.build()) {
 			railActions.remove(0);
 		}
 	}
@@ -46,7 +53,7 @@ public class RailActionModuleMrw {
 	 * open for), otherwise one of {@code LEFT}/{@code RIGHT}, mirrored between the two pairs of a
 	 * 2-pair selection so the walls face outward for the common case of two parallel tracks.
 	 */
-	public void markRailForRailWorkerWalls(Rail rail, ServerPlayerEntity serverPlayerEntity, int radius, int height, BlockState blockState, boolean sidesOnly, boolean replace, BlockPos pairStart, BlockPos pairEnd, int wallSide) {
-		railActions.add(new RailActionMrw(serverWorld, serverPlayerEntity, RailActionType.RAIL_WORKER_WALLS, rail, radius + 1, height + 1, blockState, wallSide, pairStart, pairEnd, sidesOnly, replace));
+	public void markRailForRailWorkerWalls(Rail rail, ServerPlayerEntity serverPlayerEntity, int radius, int height, BlockState blockState, boolean sidesOnly, boolean replace, BlockPos pairStart, BlockPos pairEnd, int wallSide, boolean waitForVanillaTunnelQueue) {
+		railActions.add(new RailActionMrw(serverWorld, serverPlayerEntity, RailActionType.RAIL_WORKER_WALLS, rail, radius + 1, height + 1, blockState, wallSide, pairStart, pairEnd, sidesOnly, replace, waitForVanillaTunnelQueue));
 	}
 }
