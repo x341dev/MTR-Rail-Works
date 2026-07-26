@@ -5,6 +5,11 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * Not thread-safe by design: every call site (RailActionMrw construction,
+ * RailActionModuleMrw#tick, RailActionMixin) runs on the server main thread, so BATCHES is
+ * effectively confined to it. Do not call from an async context without adding synchronization.
+ */
 public final class RailActionBatchTracker {
 
     private static final Map<UUID, int[]> BATCHES = new HashMap<>();
