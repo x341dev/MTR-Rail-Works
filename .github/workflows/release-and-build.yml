@@ -42,7 +42,7 @@ jobs:
     steps:
       - name: Run Release Please
         id: release
-        uses: googleapis/release-please-action@v4
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -325,13 +325,13 @@ jobs:
           fetch-depth: 0
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: '17'
           distribution: 'zulu'
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
 
       - name: Read Manifest Version
         run: |
@@ -373,7 +373,7 @@ jobs:
           done
 
       - name: Upload Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: mtr-rail-works-jars-${{ matrix.minecraft_version }}
           path: build/release/*.jar
@@ -391,7 +391,7 @@ jobs:
           fetch-depth: 0
 
       - name: Download Artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           pattern: mtr-rail-works-jars-*
           path: ./ready-libs
@@ -441,7 +441,7 @@ jobs:
         loader: [fabric, forge]
     steps:
       - name: Download Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: mtr-rail-works-jars-${{ matrix.minecraft_version }}
           path: ./ready-libs
@@ -460,7 +460,7 @@ jobs:
           fi
 
       - name: Publish to Modrinth
-        uses: Kira-NT/mc-publish@v3
+        uses: Kira-NT/mc-publish@52307b03863581dec6b652b83e597aec02ebb075 # v3
         with:
           modrinth-id: "xqd2bMI8"
           modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
