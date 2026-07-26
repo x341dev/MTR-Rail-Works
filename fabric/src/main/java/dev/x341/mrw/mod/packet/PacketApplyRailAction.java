@@ -15,11 +15,15 @@ import org.mtr.mod.item.ItemNodeModifierSelectableBlockBase;
 
 public final class PacketApplyRailAction extends PacketHandler {
 
+    // A modified client could otherwise send an arbitrarily large count, forcing the server to
+    // loop over an attacker-controlled list size before per-pair validation kicks in.
+    private static final int MAX_RAIL_PAIRS = 4096;
+
     private final ObjectArrayList<ObjectObjectImmutablePair<BlockPos, BlockPos>> railPairs;
 
     public PacketApplyRailAction(PacketBufferReceiver packetBufferReceiver) {
         railPairs = new ObjectArrayList<>();
-        final int count = packetBufferReceiver.readInt();
+        final int count = Math.min(packetBufferReceiver.readInt(), MAX_RAIL_PAIRS);
         for (int i = 0; i < count; i++) {
             final BlockPos start = BlockPos.fromLong(packetBufferReceiver.readLong());
             final BlockPos end = BlockPos.fromLong(packetBufferReceiver.readLong());

@@ -146,11 +146,11 @@ public final class BuildTools {
 
     static {
         //          MC        yarn                     loader      fabric-api          modmenu    forge     java pack
-        CONFIGS.put("1.17.1", new VersionConfig("1.17.1+build.65", "0.16.14", "0.46.1+1.17",   "2.0.17",  "37.1.1",  16, 7));
-        CONFIGS.put("1.18.2", new VersionConfig("1.18.2+build.4",  "0.16.14", "0.77.0+1.18.2", "3.2.5",   "40.2.21", 17, 8));
-        CONFIGS.put("1.19.2", new VersionConfig("1.19.2+build.28", "0.16.14", "0.77.0+1.19.2", "4.1.2",   "43.3.13", 17, 9));
-        CONFIGS.put("1.19.4", new VersionConfig("1.19.4+build.2",  "0.16.14", "0.87.2+1.19.4", "6.3.1",   "45.3.0",  17, 13));
-        CONFIGS.put("1.20.1", new VersionConfig("1.20.1+build.10", "0.16.14", "0.92.9+1.20.1", "7.2.2",   "47.4.0",  17, 15));
-        CONFIGS.put("1.20.4", new VersionConfig("1.20.4+build.3",  "0.16.14", "0.97.2+1.20.4", "9.2.0",   "49.1.0",  17, 22));
+        CONFIGS.put("1.17.1", new VersionConfig("1.17.1+build.65", "0.19.3", "0.46.1+1.17",   "2.0.17",  "37.1.1",  16, 7));
+        CONFIGS.put("1.18.2", new VersionConfig("1.18.2+build.4",  "0.19.3", "0.77.0+1.18.2", "3.2.5",   "40.2.21", 17, 8));
+        CONFIGS.put("1.19.2", new VersionConfig("1.19.2+build.28", "0.19.3", "0.77.0+1.19.2", "4.1.2",   "43.3.13", 17, 9));
+        CONFIGS.put("1.19.4", new VersionConfig("1.19.4+build.2",  "0.19.3", "0.87.2+1.19.4", "6.3.1",   "45.3.0",  17, 13));
+        CONFIGS.put("1.20.1", new VersionConfig("1.20.1+build.10", "0.19.3", "0.92.9+1.20.1", "7.2.2",   "47.4.0",  17, 15));
+        CONFIGS.put("1.20.4", new VersionConfig("1.20.4+build.3",  "0.19.3", "0.97.2+1.20.4", "9.2.0",   "49.1.0",  17, 22));
     }
 }
