@@ -401,8 +401,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CHANGELOG: ${{ needs.build-and-pack.outputs.changelog }}
+          TAG: ${{ needs.build-and-pack.outputs.tag_name }}
         run: |
-          TAG="${{ needs.build-and-pack.outputs.tag_name }}"
           IS_PRERELEASE=false
           if [[ "$TAG" == *-beta* || "$TAG" == *-alpha* ]]; then
             IS_PRERELEASE=true
@@ -417,8 +417,8 @@ jobs:
       - name: Upload Files to GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.build-and-pack.outputs.tag_name }}
         run: |
-          TAG="${{ needs.build-and-pack.outputs.tag_name }}"
           echo "Searching for executables in ./ready-libs..."
           for file in ./ready-libs/*.jar; do
             if [ -f "$file" ]; then
@@ -448,8 +448,9 @@ jobs:
 
       - name: Determine Version Type
         id: version-type
+        env:
+          TAG: ${{ needs.build-and-pack.outputs.tag_name }}
         run: |
-          TAG="${{ needs.build-and-pack.outputs.tag_name }}"
           if [[ "$TAG" == *-beta* ]]; then
             echo "type=beta" >> "$GITHUB_OUTPUT"
           elif [[ "$TAG" == *-alpha* ]]; then
