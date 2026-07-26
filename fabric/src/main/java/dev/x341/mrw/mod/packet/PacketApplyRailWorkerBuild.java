@@ -31,6 +31,10 @@ import javax.annotation.Nullable;
  */
 public final class PacketApplyRailWorkerBuild extends PacketHandler {
 
+	// A modified client could otherwise send an arbitrarily large count, forcing the server to
+	// loop over an attacker-controlled list size before per-segment validation kicks in.
+	private static final int MAX_PATH_SEGMENTS = 4096;
+
 	private final ObjectArrayList<ObjectObjectImmutablePair<BlockPos, BlockPos>> pair1Path;
 	private final BlockPos pair1Start;
 	private final BlockPos pair1End;
@@ -165,7 +169,7 @@ public final class PacketApplyRailWorkerBuild extends PacketHandler {
 
 	private static ObjectArrayList<ObjectObjectImmutablePair<BlockPos, BlockPos>> readPath(PacketBufferReceiver packetBufferReceiver) {
 		final ObjectArrayList<ObjectObjectImmutablePair<BlockPos, BlockPos>> path = new ObjectArrayList<>();
-		final int count = packetBufferReceiver.readInt();
+		final int count = Math.min(packetBufferReceiver.readInt(), MAX_PATH_SEGMENTS);
 		for (int i = 0; i < count; i++) {
 			final BlockPos start = BlockPos.fromLong(packetBufferReceiver.readLong());
 			final BlockPos end = BlockPos.fromLong(packetBufferReceiver.readLong());
