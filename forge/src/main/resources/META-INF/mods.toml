@@ -7,6 +7,7 @@ modId="mrw"
 version="${version}"
 displayName="MTR Rail Works"
 description="Minecraft Transit Railway addon with extra rail construction tools."
+logoFile="assets/mrw/icon.png"
 
 [[dependencies.mrw]]
     modId="forge"
