@@ -25,6 +25,6 @@ description="Minecraft Transit Railway addon with extra rail construction tools.
 [[dependencies.mrw]]
     modId="mtr"
     mandatory=true
-    versionRange="[4.0.0,)"
+    versionRange="[4.0.0, 4.1.0)"
     ordering="AFTER"
     side="BOTH"
