@@ -10,13 +10,13 @@ import org.mtr.mod.Init;
 import org.mtr.mod.block.BlockNode;
 
 import javax.annotation.Nullable;
-import java.util.Random;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
 
 /**
  * MRW's version of MTR's {@code RailAction}, covering the action types MTR 4.0.x does not have
-     * (bridge walls, Rail Worker's walls/ceiling) or does not support fully (tunnel walls with a
+ * (bridge walls, Rail Worker's walls/ceiling) or does not support fully (tunnel walls with a
  * single-side mode).
  */
 public class RailActionMrw {
@@ -47,6 +47,10 @@ public class RailActionMrw {
 	// exactly made whether the top wall block got included flicker block-to-block along a curve,
 	// even though every sample is meant to be at the same whole-number height.
 	private static final double WHOLE_NUMBER_EPSILON = 1e-6;
+	// Cooperative work budget: each server tick is ~50ms total across all game logic, so building
+	// a rail action incrementally (rather than all at once) caps how much of that a single action
+	// can eat per tick, keeping long builds from stalling the whole server.
+	private static final long TICK_BUDGET_MILLIS = 2;
 
 	public RailActionMrw(ServerWorld serverWorld, ServerPlayerEntity serverPlayerEntity, RailActionType railActionType, Rail rail, int radius, int height, @Nullable BlockState state, int wallSide) {
 		this(serverWorld, serverPlayerEntity, railActionType, rail, radius, height, state, wallSide, isRailAgainstPlayerFacing(serverPlayerEntity, rail), false, false, false);
@@ -77,7 +81,7 @@ public class RailActionMrw {
 	}
 
 	private RailActionMrw(ServerWorld serverWorld, ServerPlayerEntity serverPlayerEntity, RailActionType railActionType, Rail rail, int radius, int height, @Nullable BlockState state, int wallSide, boolean invertWallSide, boolean sidesOnly, boolean replace, boolean waitForVanillaTunnelQueue) {
-		id = new Random().nextLong();
+		id = ThreadLocalRandom.current().nextLong();
 		this.serverWorld = serverWorld;
 		uuid = serverPlayerEntity.getUuid();
 		playerName = serverPlayerEntity.getName().getString();
@@ -201,7 +205,7 @@ public class RailActionMrw {
 
 	private boolean create(boolean includeMiddle, boolean sidesOnly, Consumer<Vector> consumer) {
 		final long startTime = System.currentTimeMillis();
-		while (System.currentTimeMillis() - startTime < 2) {
+		while (System.currentTimeMillis() - startTime < TICK_BUDGET_MILLIS) {
 			final Vector pos1 = rail.railMath.getPosition(distance, false);
 			distance += INCREMENT;
 			final Vector pos2 = rail.railMath.getPosition(distance, false);
