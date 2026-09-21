@@ -1,58 +1,30 @@
 package dev.x341.mrw.mod.item;
 
-import dev.x341.mrw.mod.client.InitClient;
 import dev.x341.mrw.mod.client.RailPathFinder;
+import dev.x341.mrw.mod.client.RailWorkerClientHelper;
 import dev.x341.mrw.mod.data.RailWorkerMode;
-import dev.x341.mrw.mod.packet.PacketApplyRailWorkerBuild;
-import dev.x341.mrw.mod.packet.PacketCycleRailWorkerTargetSlot;
-import dev.x341.mrw.mod.screen.RailWorkerConfigScreen;
 import org.mtr.libraries.it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.mtr.libraries.it.unimi.dsi.fastutil.objects.ObjectObjectImmutablePair;
 import org.mtr.mapping.holder.Block;
 import org.mtr.mapping.holder.BlockPos;
 import org.mtr.mapping.holder.BlockState;
-import org.mtr.mapping.holder.ClientPlayerEntity;
 import org.mtr.mapping.holder.CompoundTag;
 import org.mtr.mapping.holder.Hand;
 import org.mtr.mapping.holder.HitResultType;
 import org.mtr.mapping.holder.ItemSettings;
 import org.mtr.mapping.holder.ItemStack;
 import org.mtr.mapping.holder.ItemUsageContext;
-import org.mtr.mapping.holder.MinecraftClient;
 import org.mtr.mapping.holder.MutableText;
 import org.mtr.mapping.holder.PlayerEntity;
-import org.mtr.mapping.holder.Screen;
 import org.mtr.mapping.holder.Text;
 import org.mtr.mapping.holder.TextFormatting;
 import org.mtr.mapping.holder.TooltipContext;
 import org.mtr.mapping.holder.World;
 import org.mtr.mapping.mapper.TextHelper;
-import org.mtr.mod.generated.lang.TranslationProvider;
 
 import javax.annotation.Nullable;
 import java.util.List;
 
-/**
- * Builds bridge floors, tunnel excavations, and (optionally) walls/ceiling along rails, all from
- * one configurable tool. Unlike {@link ItemBridgeWallCreator} this class owns its behavior
- * outright (no baked width/height variants, no mixins into a shared MTR base class) since every
- * setting lives in this item's own NBT and is edited through {@link RailWorkerConfigScreen}.
- *
- * <p>Node-click progress (the pair-selection state machine) also lives entirely in this specific
- * item stack's own NBT, exactly like {@link ItemBridgeWallCreator}'s saved {@code TAG_POS} — never
- * in a shared static field — so two Rail Worker stacks (different hotbar slots, one dropped and
- * another picked up, ...) never bleed progress into each other. Click order is interleaved rather
- * than sequential: 1st click is pair 1's start, 2nd click either completes pair 1 (if it
- * BFS-connects to the 1st click — the operation then fires immediately using pair 1 alone) or, if
- * it does not connect, is treated as pair 2's start; the 3rd click then completes pair 1's end and
- * the 4th completes pair 2's end, firing both in one batched packet. This click order (start,
- * start, end, end) matches walking along two parallel rails and clicking both starts before
- * walking to the far end, rather than finishing one pair before starting the next. Sneak + use on
- * a node ({@link #onSneakNodeClick}) bypasses the automatic BFS-connectivity decision and forces
- * that click to become pair 2's start outright, for the case where a pair 1/pair 2 candidate
- * happen to be technically connected somewhere in the network but two independent segments are
- * wanted anyway.
- */
 public class ItemRailWorker extends ItemNodeModifierSelectableBlockBase {
 
 	public static final String TAG_MODE = "mrw_mode";
@@ -79,11 +51,6 @@ public class ItemRailWorker extends ItemNodeModifierSelectableBlockBase {
 		super(itemSettings);
 	}
 
-	/**
-	 * Sneak + use in the air opens the config screen. Every setting the screen edits already lives
-	 * in this item's own (server-synced) NBT, so unlike MTR's block-entity screens, no packet is
-	 * needed just to open it — only to persist changes back (see {@link RailWorkerConfigScreen}).
-	 */
 	@Override
 	public void useWithoutResult(World world, PlayerEntity playerEntity, Hand hand) {
 		if (!playerEntity.isSneaking() || playerEntity.raycast(5, 1, false).getType() != HitResultType.MISS) {
@@ -91,7 +58,7 @@ public class ItemRailWorker extends ItemNodeModifierSelectableBlockBase {
 		}
 		if (world.isClient()) {
 			resetClickState(playerEntity.getStackInHand(hand).getOrCreateTag());
-			MinecraftClient.getInstance().openScreen(new Screen(new RailWorkerConfigScreen(playerEntity.getStackInHand(hand))));
+            RailWorkerClientHelper.openConfigScreen(playerEntity.getStackInHand(hand));
 		}
 	}
 
@@ -158,7 +125,7 @@ public class ItemRailWorker extends ItemNodeModifierSelectableBlockBase {
 				if (path != null) {
 					// Directly connected: the player only wants a single pair, build now
 					debugLog("click at " + clicked + " (stage 1): connects to pair1Start=" + pair1Start + " (" + path.size() + " segments) -> sending single-pair build");
-					InitClient.REGISTRY_CLIENT.sendPacketToServer(new PacketApplyRailWorkerBuild(path, pair1Start, clicked));
+					RailWorkerClientHelper.sendBuildPacket(path, pair1Start, clicked);
 					resetClickState(tag);
 				} else {
 					// Not connected: treat this as the second pair's start instead of an error
@@ -173,7 +140,7 @@ public class ItemRailWorker extends ItemNodeModifierSelectableBlockBase {
 				final ObjectArrayList<ObjectObjectImmutablePair<BlockPos, BlockPos>> path = RailPathFinder.findPath(pair1Start, clicked);
 				if (path == null) {
 					debugLog("click at " + clicked + " (stage 2): no path from pair1Start=" + pair1Start + " -> rail not found, staying at stage 2");
-					showRailNotFound();
+					RailWorkerClientHelper.showRailNotFound();
 					return;
 				}
 				tag.putLong(TAG_PAIR1_END, clicked.asLong());
@@ -186,7 +153,7 @@ public class ItemRailWorker extends ItemNodeModifierSelectableBlockBase {
 				final ObjectArrayList<ObjectObjectImmutablePair<BlockPos, BlockPos>> pair2Path = RailPathFinder.findPath(pair2Start, clicked);
 				if (pair2Path == null) {
 					debugLog("click at " + clicked + " (stage 3): no path from pair2Start=" + pair2Start + " -> rail not found, staying at stage 3");
-					showRailNotFound();
+					RailWorkerClientHelper.showRailNotFound();
 					return;
 				}
 				final BlockPos pair1Start = BlockPos.fromLong(tag.getLong(TAG_PAIR1_START));
@@ -196,11 +163,11 @@ public class ItemRailWorker extends ItemNodeModifierSelectableBlockBase {
 				final ObjectArrayList<ObjectObjectImmutablePair<BlockPos, BlockPos>> pair1Path = RailPathFinder.findPath(pair1Start, pair1End);
 				if (pair1Path == null) {
 					debugLog("click at " + clicked + " (stage 3): pair1 (" + pair1Start + "->" + pair1End + ") no longer connects -> rail not found, staying at stage 3");
-					showRailNotFound();
+					RailWorkerClientHelper.showRailNotFound();
 					return;
 				}
 				debugLog("click at " + clicked + " (stage 3): connects to pair2Start=" + pair2Start + " (" + pair2Path.size() + " segments) -> sending 2-pair build");
-				InitClient.REGISTRY_CLIENT.sendPacketToServer(new PacketApplyRailWorkerBuild(pair1Path, pair1Start, pair1End, pair2Path, pair2Start, clicked));
+				RailWorkerClientHelper.sendBuildPacket(pair1Path, pair1Start, pair1End, pair2Path, pair2Start, clicked);
 				resetClickState(tag);
 				break;
 			}
@@ -243,13 +210,6 @@ public class ItemRailWorker extends ItemNodeModifierSelectableBlockBase {
 		}
 	}
 
-	private static void showRailNotFound() {
-		final ClientPlayerEntity player = MinecraftClient.getInstance().getPlayerMapped();
-		if (player != null) {
-			player.sendMessage(TranslationProvider.GUI_MTR_RAIL_NOT_FOUND_ACTION.getText(), true);
-		}
-	}
-
 	private static void resetClickState(CompoundTag tag) {
 		tag.remove(TAG_CLICK_STAGE);
 		tag.remove(TAG_PAIR1_START);
@@ -284,26 +244,5 @@ public class ItemRailWorker extends ItemNodeModifierSelectableBlockBase {
 	public static float getTextureIndex(CompoundTag tag) {
 		final int stage = tag.getInt(TAG_CLICK_STAGE);
 		return stage >= 2 ? 1.0f : stage >= 1 ? 0.5f : 0.0f;
-	}
-
-	/**
-	 * Ctrl+scroll target-slot cycling. Called from each loader's own scroll hook (a Fabric mixin
-	 * into vanilla {@code Mouse}, a Forge {@code InputEvent.MouseScrollingEvent} listener — neither
-	 * can be shared code, see the Rail Worker implementation plan) so both loaders funnel through
-	 * one place. Flips the client's own NBT copy immediately for instant feedback, then tells the
-	 * server to apply the same flip to its authoritative copy.
-	 */
-	public static void cycleTargetSlot(ClientPlayerEntity player) {
-		final ItemStack itemStack = player.getMainHandStack();
-		if (!(itemStack.getItem().data instanceof ItemRailWorker)) {
-			return;
-		}
-
-		final CompoundTag tag = itemStack.getOrCreateTag();
-		final int next = tag.getInt(TAG_TARGET_SLOT) == TARGET_WALL ? TARGET_FLOOR : TARGET_WALL;
-		tag.putInt(TAG_TARGET_SLOT, next);
-		player.sendMessage(new Text(TextHelper.translatable("tooltip.mrw.rail_worker_target_switched", TextHelper.translatable(next == TARGET_WALL ? "tooltip.mrw.rail_worker_target_wall" : "tooltip.mrw.rail_worker_target_floor").getString()).data), true);
-
-		InitClient.REGISTRY_CLIENT.sendPacketToServer(new PacketCycleRailWorkerTargetSlot());
 	}
 }
