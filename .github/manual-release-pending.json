@@ -1,0 +1,5 @@
+{
+  "tag": "v0.2.3-beta.2",
+  "version_number": "0.2.3-beta.2",
+  "changelog": "### Bug Fixes\n- separate Rail Worker client only logic to dedicated class"
+}
