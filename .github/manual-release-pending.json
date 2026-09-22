@@ -1,5 +1,5 @@
 {
-  "tag": "v0.2.3-beta.2",
-  "version_number": "0.2.3-beta.2",
-  "changelog": "### Bug Fixes\n- change client functions to ClientHelper on Forge's side\n- separate Rail Worker client only logic to dedicated class"
+  "tag": "v0.2.3-beta.1",
+  "version_number": "0.2.3-beta.1",
+  "changelog": "### Bug Fixes\n- resolve Rail Worker wall side by pair position, not selection order"
 }
