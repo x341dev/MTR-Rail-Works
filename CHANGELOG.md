@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.4](https://github.com/x341dev/MTR-Rail-Works/compare/v0.2.3...v0.2.4) (2026-09-22)
+
+
+### Bug Fixes
+
+* change client functions to ClientHelper on Forge's side ([2d57a4d](https://github.com/x341dev/MTR-Rail-Works/commit/2d57a4d2117e21cdb78c48a188b2aa08f623342d))
+* separate Rail Worker client only logic to dedicated class ([3fd56b6](https://github.com/x341dev/MTR-Rail-Works/commit/3fd56b6a9f97be094b64a562822d5c34f08e6893))
+
 ## [0.2.2](https://github.com/x341dev/MTR-Rail-Works/compare/v0.2.1...v0.2.2) (2026-07-21)
 
 
