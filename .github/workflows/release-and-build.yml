@@ -24,6 +24,10 @@ on:
         required: false
         type: boolean
         default: false
+      modrinth_changelog:
+        description: 'Custom changelog for Modrinth. Leave empty to use the modrinth-changelog.md file (which will fail if unmodified) or auto-fallback.'
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -263,52 +267,85 @@ jobs:
             fi
 
   resolve-release:
-    name: Resolve Release Info
-    needs: [release-please, detect-manual-release, prepare-manual-release]
-    if: >-
-      ${{ !cancelled() && (
-        needs.release-please.outputs.release_created == 'true' ||
-        needs.detect-manual-release.outputs.pending == 'true' ||
-        (github.event_name == 'workflow_dispatch' && needs.prepare-manual-release.outputs.tag_name != '')
-      ) }}
-    runs-on: ubuntu-latest
-    outputs:
-      tag_name: ${{ steps.resolve.outputs.tag_name }}
-      version_number: ${{ steps.resolve.outputs.version_number }}
-      changelog: ${{ steps.resolve.outputs.changelog }}
-    steps:
-      - name: Resolve Tag, Version & Changelog
-        id: resolve
-        env:
-          RELEASE_CREATED: ${{ needs.release-please.outputs.release_created }}
-          RP_TAG: ${{ needs.release-please.outputs.tag_name }}
-          RP_BODY: ${{ needs.release-please.outputs.body }}
-          PENDING: ${{ needs.detect-manual-release.outputs.pending }}
-          PENDING_TAG: ${{ needs.detect-manual-release.outputs.tag_name }}
-          PENDING_VERSION: ${{ needs.detect-manual-release.outputs.version_number }}
-          PENDING_CHANGELOG: ${{ needs.detect-manual-release.outputs.changelog }}
-          MANUAL_TAG: ${{ needs.prepare-manual-release.outputs.tag_name }}
-          MANUAL_VERSION: ${{ needs.prepare-manual-release.outputs.version_number }}
-          MANUAL_CHANGELOG: ${{ needs.prepare-manual-release.outputs.changelog }}
-        run: |
-          if [ "$RELEASE_CREATED" = "true" ]; then
-            TAG="$RP_TAG"
-            CHANGELOG="$RP_BODY"
-          elif [ "$PENDING" = "true" ]; then
-            TAG="$PENDING_TAG"
-            CHANGELOG="$PENDING_CHANGELOG"
-          else
-            TAG="$MANUAL_TAG"
-            CHANGELOG="$MANUAL_CHANGELOG"
-          fi
-          VERSION_NUMBER="${TAG#v}"
-
-          DELIMITER="CHANGELOG_EOF_${GITHUB_RUN_ID}"
-          echo "tag_name=$TAG" >> "$GITHUB_OUTPUT"
-          echo "version_number=$VERSION_NUMBER" >> "$GITHUB_OUTPUT"
-          echo "changelog<<$DELIMITER" >> "$GITHUB_OUTPUT"
-          echo "$CHANGELOG" >> "$GITHUB_OUTPUT"
-          echo "$DELIMITER" >> "$GITHUB_OUTPUT"
+      name: Resolve Release Info
+      needs: [release-please, detect-manual-release, prepare-manual-release]
+      if: >-
+        ${{ !cancelled() && (
+          needs.release-please.outputs.release_created == 'true' ||
+          needs.detect-manual-release.outputs.pending == 'true' ||
+          (github.event_name == 'workflow_dispatch' && needs.prepare-manual-release.outputs.tag_name != '')
+        ) }}
+      runs-on: ubuntu-latest
+      outputs:
+        tag_name: ${{ steps.resolve.outputs.tag_name }}
+        version_number: ${{ steps.resolve.outputs.version_number }}
+        changelog: ${{ steps.resolve.outputs.changelog }}
+        modrinth_changelog: ${{ steps.resolve.outputs.modrinth_changelog }}
+      steps:
+        - name: Checkout
+          uses: actions/checkout@v6
+          with:
+            fetch-depth: 0
+  
+        - name: Resolve Tag, Version & Changelog
+          id: resolve
+          env:
+            RELEASE_CREATED: ${{ needs.release-please.outputs.release_created }}
+            RP_TAG: ${{ needs.release-please.outputs.tag_name }}
+            RP_BODY: ${{ needs.release-please.outputs.body }}
+            PENDING: ${{ needs.detect-manual-release.outputs.pending }}
+            PENDING_TAG: ${{ needs.detect-manual-release.outputs.tag_name }}
+            PENDING_VERSION: ${{ needs.detect-manual-release.outputs.version_number }}
+            PENDING_CHANGELOG: ${{ needs.detect-manual-release.outputs.changelog }}
+            MANUAL_TAG: ${{ needs.prepare-manual-release.outputs.tag_name }}
+            MANUAL_VERSION: ${{ needs.prepare-manual-release.outputs.version_number }}
+            MANUAL_CHANGELOG: ${{ needs.prepare-manual-release.outputs.changelog }}
+            MODRINTH_INPUT: ${{ github.event.inputs.modrinth_changelog }}
+          run: |
+            if [ "$RELEASE_CREATED" = "true" ]; then
+              TAG="$RP_TAG"
+              CHANGELOG="$RP_BODY"
+            elif [ "$PENDING" = "true" ]; then
+              TAG="$PENDING_TAG"
+              CHANGELOG="$PENDING_CHANGELOG"
+            else
+              TAG="$MANUAL_TAG"
+              CHANGELOG="$MANUAL_CHANGELOG"
+            fi
+            VERSION_NUMBER="${TAG#v}"
+  
+            MODRINTH_CHANGELOG=""
+            if [ -n "$MODRINTH_INPUT" ]; then
+              MODRINTH_CHANGELOG="$MODRINTH_INPUT"
+            elif [ -f "modrinth-changelog.md" ] && [ -s "modrinth-changelog.md" ]; then
+              
+              LAST_TAG=$(git tag --sort=-creatordate | grep -v -x "$TAG" | head -n1)
+              
+              if [ -n "$LAST_TAG" ]; then
+                if ! git diff --name-only "$LAST_TAG..HEAD" | grep -q "^modrinth-changelog.md$"; then
+                  echo "::error::The file modrinth-changelog.md has NOT been modified since the last release ($LAST_TAG)."
+                  echo "::error::Please update the changelog before making a release to avoid uploading old patch notes."
+                  exit 1
+                fi
+              fi
+  
+              MODRINTH_CHANGELOG=$(cat modrinth-changelog.md)
+            else
+              MODRINTH_CHANGELOG="$CHANGELOG"
+            fi
+            # ---------------------------------------------
+  
+            DELIMITER="CHANGELOG_EOF_${GITHUB_RUN_ID}"
+            echo "tag_name=$TAG" >> "$GITHUB_OUTPUT"
+            echo "version_number=$VERSION_NUMBER" >> "$GITHUB_OUTPUT"
+            
+            echo "changelog<<$DELIMITER" >> "$GITHUB_OUTPUT"
+            echo "$CHANGELOG" >> "$GITHUB_OUTPUT"
+            echo "$DELIMITER" >> "$GITHUB_OUTPUT"
+  
+            echo "modrinth_changelog<<$DELIMITER" >> "$GITHUB_OUTPUT"
+            echo "$MODRINTH_CHANGELOG" >> "$GITHUB_OUTPUT"
+            echo "$DELIMITER" >> "$GITHUB_OUTPUT"
 
   build-and-pack:
     name: Build & Pack (MC ${{ matrix.minecraft_version }})
@@ -435,46 +472,46 @@ jobs:
           done
 
   publish-modrinth:
-    name: Publish to Modrinth (${{ matrix.loader }} ${{ matrix.minecraft_version }})
-    needs: [resolve-release, build-and-pack, publish-github-release]
-    if: ${{ !cancelled() && needs.resolve-release.outputs.tag_name != '' }}
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        minecraft_version: [1.17.1, 1.18.2, 1.19.2, 1.19.4, 1.20.1, 1.20.4]
-        loader: [fabric, forge]
-    steps:
-      - name: Download Artifact
-        uses: actions/download-artifact@v6
-        with:
-          name: mtr-rail-works-jars-${{ matrix.minecraft_version }}
-          path: ./ready-libs
-
-      - name: Determine Version Type
-        id: version-type
-        env:
-          TAG: ${{ needs.build-and-pack.outputs.tag_name }}
-        run: |
-          if [[ "$TAG" == *-beta* ]]; then
-            echo "type=beta" >> "$GITHUB_OUTPUT"
-          elif [[ "$TAG" == *-alpha* ]]; then
-            echo "type=alpha" >> "$GITHUB_OUTPUT"
-          else
-            echo "type=release" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Publish to Modrinth
-        uses: Kira-NT/mc-publish@52307b03863581dec6b652b83e597aec02ebb075 # v3
-        with:
-          modrinth-id: "xqd2bMI8"
-          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
-          name: "MTR Rail Works ${{ needs.build-and-pack.outputs.tag_name }} for ${{ matrix.loader }} ${{ matrix.minecraft_version }}"
-          version: ${{ needs.build-and-pack.outputs.version_number }}
-          version-type: ${{ steps.version-type.outputs.type }}
-          changelog: ${{ needs.build-and-pack.outputs.changelog }}
-          files: ./ready-libs/*-${{ matrix.loader }}-*.jar
-          game-versions: ${{ matrix.minecraft_version }}
-          loaders: ${{ matrix.loader }}
-          retry-attempts: 2
-          retry-delay: 10000
+      name: Publish to Modrinth (${{ matrix.loader }} ${{ matrix.minecraft_version }})
+      needs: [resolve-release, build-and-pack, publish-github-release]
+      if: ${{ !cancelled() && needs.resolve-release.outputs.tag_name != '' }}
+      runs-on: ubuntu-latest
+      strategy:
+        fail-fast: false
+        matrix:
+          minecraft_version: [1.17.1, 1.18.2, 1.19.2, 1.19.4, 1.20.1, 1.20.4]
+          loader: [fabric, forge]
+      steps:
+        - name: Download Artifact
+          uses: actions/download-artifact@v6
+          with:
+            name: mtr-rail-works-jars-${{ matrix.minecraft_version }}
+            path: ./ready-libs
+  
+        - name: Determine Version Type
+          id: version-type
+          env:
+            TAG: ${{ needs.build-and-pack.outputs.tag_name }}
+          run: |
+            if [[ "$TAG" == *-beta* ]]; then
+              echo "type=beta" >> "$GITHUB_OUTPUT"
+            elif [[ "$TAG" == *-alpha* ]]; then
+              echo "type=alpha" >> "$GITHUB_OUTPUT"
+            else
+              echo "type=release" >> "$GITHUB_OUTPUT"
+            fi
+  
+        - name: Publish to Modrinth
+          uses: Kira-NT/mc-publish@52307b03863581dec6b652b83e597aec02ebb075 # v3
+          with:
+            modrinth-id: "xqd2bMI8"
+            modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+            name: "MTR Rail Works ${{ needs.build-and-pack.outputs.tag_name }} for ${{ matrix.loader }} ${{ matrix.minecraft_version }}"
+            version: ${{ needs.build-and-pack.outputs.version_number }}
+            version-type: ${{ steps.version-type.outputs.type }}
+            changelog: ${{ needs.resolve-release.outputs.modrinth_changelog }} # Uses the Modrinth-specific changelog
+            files: ./ready-libs/*-${{ matrix.loader }}-*.jar
+            game-versions: ${{ matrix.minecraft_version }}
+            loaders: ${{ matrix.loader }}
+            retry-attempts: 2
+            retry-delay: 10000
