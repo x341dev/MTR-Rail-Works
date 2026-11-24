@@ -54,5 +54,6 @@
   "gui.mrw.rail_worker_wall_block": "Wall Block: %s",
   "gui.mrw.rail_worker_block_not_set": "Not Set",
   "command.mrw.debug_on": "MRW debug logging enabled",
-  "command.mrw.debug_off": "MRW debug logging disabled"
+  "command.mrw.debug_off": "MRW debug logging disabled",
+  "block.mrw.shape_designer": "Shape Designer"
 }
