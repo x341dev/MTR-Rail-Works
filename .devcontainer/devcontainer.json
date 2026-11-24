@@ -1,11 +1,10 @@
 {
-  "name": "MTR Rail Works (Java 21 + 17)",
+  "name": "MTR Rail Works",
   "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
   "features": {
     "ghcr.io/devcontainers/features/java:1": {
-      "version": "21",
-      "additionalVersions": "17",
-      "jdkDistro": "tem",
+      "version": "17",
+      "jdkDistro": "zulu",
       "installGradle": "false"
     }
   },
@@ -21,8 +20,7 @@
       ],
       "settings": {
         "java.configuration.runtimes": [
-          { "name": "JavaSE-17", "path": "/usr/local/sdkman/candidates/java/17" },
-          { "name": "JavaSE-21", "path": "/usr/local/sdkman/candidates/java/21", "default": true }
+          { "name": "JavaSE-17", "path": "/usr/local/sdkman/candidates/java/17", "default": true }
         ]
       }
     }
