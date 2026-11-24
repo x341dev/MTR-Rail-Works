@@ -1,10 +1,7 @@
 package dev.x341.mrw.mod;
 
 import dev.x341.mrw.mod.data.RailActionModuleMrw;
-import dev.x341.mrw.mod.packet.PacketApplyRailAction;
-import dev.x341.mrw.mod.packet.PacketApplyRailWorkerBuild;
-import dev.x341.mrw.mod.packet.PacketCycleRailWorkerTargetSlot;
-import dev.x341.mrw.mod.packet.PacketUpdateRailWorkerConfig;
+import dev.x341.mrw.mod.packet.*;
 import dev.x341.mrw.mod.registry.BlockEntityTypes;
 import dev.x341.mrw.mod.registry.Blocks;
 import dev.x341.mrw.mod.registry.Items;
@@ -46,6 +43,7 @@ public final class Init {
 		REGISTRY.registerPacket(PacketApplyRailWorkerBuild.class, PacketApplyRailWorkerBuild::new);
 		REGISTRY.registerPacket(PacketUpdateRailWorkerConfig.class, PacketUpdateRailWorkerConfig::new);
 		REGISTRY.registerPacket(PacketCycleRailWorkerTargetSlot.class, PacketCycleRailWorkerTargetSlot::new);
+		REGISTRY.registerPacket(PacketUpdateShapeDesigner.class	, PacketUpdateShapeDesigner::new);
 
 		REGISTRY.registerCommand("mrw", commandBuilder -> commandBuilder.then("debug", debugBuilder -> {
 			debugBuilder.permissionLevel(2);
