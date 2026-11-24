@@ -94,4 +94,16 @@ public class ShapeProfile {
         }
         return profile;
     }
+
+    public static boolean isPresent(CompoundTag tag) {
+        return tag.contains(KEY_CELLS);
+    }
+
+    public static void removeTag(CompoundTag tag) {
+		tag.remove(KEY_PALETTE_SIZE);
+		for (int i = 0; i < MAX_PALETTE; i++) {
+			tag.remove(KEY_PALETTE_PREFIX + i);
+		}
+		tag.remove(KEY_CELLS);
+	}
 }

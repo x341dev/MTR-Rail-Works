@@ -83,6 +83,9 @@ public class ItemRailWorker extends ItemNodeModifierSelectableBlockBase {
 						RailWorkerMode.hasWallsCeiling(mode) ? "tooltip.mrw.rail_worker_walls_ceiling" : "tooltip.mrw.rail_worker_walls_none"
 		).getString()).formatted(TextFormatting.GRAY));
 		tooltip.add(TextHelper.translatable("tooltip.mrw.rail_worker_size", getWidth(tag), getHeight(tag)).formatted(TextFormatting.GRAY));
+		if (ShapeProfile.isPresent(tag)) {
+			tooltip.add(TextHelper.translatable("tooltip.mrw.rail_worker_shape").formatted(TextFormatting.GOLD));
+		}
 		tooltip.add(TextHelper.translatable("tooltip.mrw.rail_worker_hint_save").formatted(TextFormatting.GRAY).formatted(TextFormatting.ITALIC));
 		tooltip.add(TextHelper.translatable("tooltip.mrw.rail_worker_hint_force_pair2").formatted(TextFormatting.GRAY).formatted(TextFormatting.ITALIC));
 		tooltip.add(TextHelper.translatable("tooltip.mrw.rail_worker_hint_scroll").formatted(TextFormatting.GRAY).formatted(TextFormatting.ITALIC));
@@ -92,9 +95,26 @@ public class ItemRailWorker extends ItemNodeModifierSelectableBlockBase {
 	@Override
 	protected void saveOrClearBlock(ItemUsageContext context, PlayerEntity player) {
 		final BlockPos blockPos = context.getBlockPos();
-		final BlockState clickedState = context.getWorld().getBlockState(blockPos);
+		final CompoundTag itemTag = context.getStack().getOrCreateTag();
 
-		final CompoundTag tag = context.getStack().getOrCreateTag();
+		final BlockEntity clickedBlockEntity = context.getWorld().getBlockEntity(blockPos);
+		if (clickedBlockEntity != null && clickedBlockEntity.data instanceof BlockEntityShapeDesigner) {
+			final ShapeProfile profile = ((BlockEntityShapeDesigner) clickedBlockEntity.data).getProfile();
+			ShapeProfile.removeTag(itemTag);
+			if (profile.isEmpty()) {
+				player.sendMessage(new Text(TextHelper.translatable("tooltip.mrw.rail_worker_shape_cleared").data), true);
+			} else {
+				profile.writeTag(itemTag);
+				player.sendMessage(new Text(TextHelper.translatable("tooltip.mrw.rail_worker_shape_saved").data), true);
+			}
+			return;
+		}
+
+		final BlockState clickedState = context.getWorld().getBlockState(blockPos);
+		final BlockPos blockPos = context.getBlockPos();
+		final BlockState clickedState = context.getWorld().getBlockState(blockPos);
+		
+		final CompoundTag tag = itemTag;
 		final int targetSlot = tag.getInt(TAG_TARGET_SLOT);
 		final String tagKey = targetSlot == TARGET_WALL ? TAG_WALL_BLOCK : TAG_FLOOR_BLOCK;
 		final int clickedRawId = Block.getRawIdFromState(clickedState);
