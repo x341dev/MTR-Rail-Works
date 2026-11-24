@@ -1,20 +1,23 @@
 {
-  "name": "Java 21 + 17",
+  "name": "MTR Rail Works (Java 21 + 17)",
   "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
   "features": {
     "ghcr.io/devcontainers/features/java:1": {
       "version": "21",
       "additionalVersions": "17",
       "jdkDistro": "tem",
-      "installMaven": "true",
-      "installGradle": "true"
+      "installGradle": "false"
     }
+  },
+  "hostRequirements": {
+    "cpus": 4,
+    "memory": "8gb"
   },
   "customizations": {
     "vscode": {
       "extensions": [
         "vscjava.vscode-java-pack",
-        "vmware.vscode-spring-boot"
+        "vscjava.vscode-gradle"
       ],
       "settings": {
         "java.configuration.runtimes": [
@@ -24,5 +27,5 @@
       }
     }
   },
-  "postCreateCommand": "java -version && mvn -version"
+  "postCreateCommand": "java -version && chmod +x ./gradlew && ./gradlew setupFiles --no-daemon"
 }
