@@ -5,10 +5,13 @@ import dev.x341.mrw.mod.packet.PacketApplyRailAction;
 import dev.x341.mrw.mod.packet.PacketApplyRailWorkerBuild;
 import dev.x341.mrw.mod.packet.PacketCycleRailWorkerTargetSlot;
 import dev.x341.mrw.mod.packet.PacketUpdateRailWorkerConfig;
+import dev.x341.mrw.mod.registry.BlockEntityTypes;
+import dev.x341.mrw.mod.registry.Blocks;
 import dev.x341.mrw.mod.registry.Items;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.mtr.libraries.it.unimi.dsi.fastutil.objects.Object2ObjectArrayMap;
+import org.mtr.mapping.holder.BlockState;
 import org.mtr.mapping.holder.Identifier;
 import org.mtr.mapping.holder.ServerWorld;
 import org.mtr.mapping.mapper.MinecraftServerHelper;
@@ -35,6 +38,8 @@ public final class Init {
 		LOGGER.info("Hello from MRW OwO");
 
 		Items.init();
+		Blocks.init();
+		BlockEntityTypes.init();
 
 		REGISTRY.setupPackets(new Identifier(MOD_ID, "packet"));
 		REGISTRY.registerPacket(PacketApplyRailAction.class, PacketApplyRailAction::new);
