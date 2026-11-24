@@ -1,0 +1,42 @@
+{
+  "name": "MTR Rail Works",
+  "image": "mcr.microsoft.com/devcontainers/java:1-17-bookworm",
+  "remoteUser": "root",
+  "containerUser": "root",
+  "updateRemoteUserUID": false,
+
+  "containerEnv": {
+    "GRADLE_USER_HOME": "/gradle-cache",
+    "GRADLE_OPTS": "-Dorg.gradle.daemon=false -Xmx3g"
+  },
+
+  "mounts": [
+    "source=mc-gradle-cache,target=/gradle-cache,type=volume"
+  ],
+
+  "forwardPorts": [25565],
+  "portsAttributes": {
+    "25565": { "label": "Minecraft Server" }
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "vscjava.vscode-java-pack",
+        "vscjava.vscode-gradle",
+        "redhat.vscode-xml",
+        "tamasfe.even-better-toml"
+      ],
+      "settings": {
+        "java.import.gradle.wrapper.enabled": true,
+        "java.configuration.updateBuildConfiguration": "automatic",
+        "files.exclude": {
+          "**/.gradle": true,
+          "**/build": true
+        }
+      }
+    }
+  },
+
+  "postCreateCommand": "java -version && ([ -f gradlew ] && chmod +x gradlew || true)"
+}
