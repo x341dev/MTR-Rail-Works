@@ -39,6 +39,8 @@ public class RailActionMrw {
 	private final BlockState state;
 	private final boolean waitForVanillaTunnelQueue;
 	private final ObjectOpenHashSet<BlockPos> blacklistedPositions = new ObjectOpenHashSet<>();
+	private ShapeProfile shapeProfile;
+	private BlockState[] shapeStates;
 
 	private static final double INCREMENT = 0.1;
 	// rail.railMath.getPosition() runs curved segments through spline/trig math (unlike straight
@@ -54,6 +56,12 @@ public class RailActionMrw {
 
 	public RailActionMrw(ServerWorld serverWorld, ServerPlayerEntity serverPlayerEntity, RailActionType railActionType, Rail rail, int radius, int height, @Nullable BlockState state, int wallSide) {
 		this(serverWorld, serverPlayerEntity, railActionType, rail, radius, height, state, wallSide, isRailAgainstPlayerFacing(serverPlayerEntity, rail), false, false, false);
+	}
+
+	public RailActionMrw(ServerWorld serverWorld, ServerPlayerEntity serverPlayerEntity, Rail rail, ShapeProfile profile, BlockState[] paletteStates, BlockPos pairStart, BlockPos pairEnd) {
+		this(serverWorld, serverPlayerEntity, RailActionType.RAIL_WORKER_SHAPE, rail, ShapeProfile.SIZE / 2, 0, null, WallSide.BOTH, isRailAgainstNodeOffset(pairStart, pairEnd, rail), false, false, false);
+		shapeProfile = profile;
+		shapeStates = paletteStates;
 	}
 
 	/**
@@ -162,6 +170,8 @@ public class RailActionMrw {
 				return createTunnelWall();
 			case RAIL_WORKER_WALLS:
 				return createRailWorkerWalls();
+			case RAIL_WORKER_SHAPE:
+				return createShape();
 			case BRIDGE_WALL:
 			default:
 				return createBridgeWall();
@@ -178,6 +188,48 @@ public class RailActionMrw {
 
 	private boolean createRailWorkerWalls() {
 		return create(false, sidesOnly, vector -> place(fromVector(vector), replace));
+	}
+
+	private boolean createShape() {
+		final long startTime = System.currentTimeMillis();
+		final int half = ShapeProfile.SIZE / 2;
+		while (System.currentTimeMillis() - startTime < TICK_BUDGET_MILLIS) {
+			final Vector pos1 = rail.railMath.getPosition(distance, false);
+			distance += INCREMENT;
+			final Vector pos2 = rail.railMath.getPosition(distance, false);
+			final Vector vec3 = new Vector(pos2.x - pos1.x, 0, pos2.z - pos1.x).normalize().rotateY((float) Math.PI / 2);
+
+			for (double x = -half - 0.5; x < half + 0.5; x+= INCREMENT) {
+				final double signedX = invertWallSide ? -x : x;
+				final int column = Math.max(0, Math.min(ShapeProfile.SIZE - 1, (int) Math.floor(signedX + half + 0.5)));
+				final Vector editPos = pos1.add(vec3.multiply(x, 0, x));
+				for (int row = 0; row < ShapeProfile.SIZE; row++) {
+					final byte cell = shapeProfile.getCell(column, row);
+					if (cell != ShapeProfile.EMPTY && cell < shapeStates.length) {
+						placeShape(fromVector(editPos.add(0, row - ShapeProfile.RAIL_ROW, 0)), shapeStates[cell]);
+					}
+				}
+			}
+
+			if (length - distance < INCREMENT) {
+				sendProgressMessage(100);
+				return true;
+			}
+		}
+
+		sendProgressMessage((float) Utilities.round(100 * distance / length, 1));
+		return false;
+	}
+
+	private void placeShape(BlockPos blockPos, @Nullable BlockState blockState) {
+		if (blockState == null || blacklistedPositions.contains(blockPos) || !canPlace(serverWorld, blockPos)) {
+			return;
+		}
+		if (blockState.isAir() && serverWorld.getBlockState(blockPos).isAir()) {
+			return;
+		}
+		serverWorld.setBlockState(blockPos, blockState);
+		blacklistedPositions.add(blockPos);
 	}
 
 	private void place(BlockPos blockPos) {

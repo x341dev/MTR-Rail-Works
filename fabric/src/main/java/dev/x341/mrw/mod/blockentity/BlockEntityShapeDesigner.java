@@ -6,7 +6,6 @@ import org.mtr.mapping.holder.BlockPos;
 import org.mtr.mapping.holder.BlockState;
 import org.mtr.mapping.holder.CompoundTag;
 import org.mtr.mapping.mapper.BlockEntityExtension;
-import org.mtr.mod.BlockEntityTypes;
 
 public class BlockEntityShapeDesigner extends BlockEntityExtension {
 

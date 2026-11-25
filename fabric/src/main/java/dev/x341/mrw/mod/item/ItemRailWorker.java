@@ -1,25 +1,13 @@
 package dev.x341.mrw.mod.item;
 
+import dev.x341.mrw.mod.blockentity.BlockEntityShapeDesigner;
 import dev.x341.mrw.mod.client.RailPathFinder;
 import dev.x341.mrw.mod.client.RailWorkerClientHelper;
 import dev.x341.mrw.mod.data.RailWorkerMode;
+import dev.x341.mrw.mod.data.ShapeProfile;
 import org.mtr.libraries.it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.mtr.libraries.it.unimi.dsi.fastutil.objects.ObjectObjectImmutablePair;
-import org.mtr.mapping.holder.Block;
-import org.mtr.mapping.holder.BlockPos;
-import org.mtr.mapping.holder.BlockState;
-import org.mtr.mapping.holder.CompoundTag;
-import org.mtr.mapping.holder.Hand;
-import org.mtr.mapping.holder.HitResultType;
-import org.mtr.mapping.holder.ItemSettings;
-import org.mtr.mapping.holder.ItemStack;
-import org.mtr.mapping.holder.ItemUsageContext;
-import org.mtr.mapping.holder.MutableText;
-import org.mtr.mapping.holder.PlayerEntity;
-import org.mtr.mapping.holder.Text;
-import org.mtr.mapping.holder.TextFormatting;
-import org.mtr.mapping.holder.TooltipContext;
-import org.mtr.mapping.holder.World;
+import org.mtr.mapping.holder.*;
 import org.mtr.mapping.mapper.TextHelper;
 
 import javax.annotation.Nullable;
@@ -110,8 +98,6 @@ public class ItemRailWorker extends ItemNodeModifierSelectableBlockBase {
 			return;
 		}
 
-		final BlockState clickedState = context.getWorld().getBlockState(blockPos);
-		final BlockPos blockPos = context.getBlockPos();
 		final BlockState clickedState = context.getWorld().getBlockState(blockPos);
 		
 		final CompoundTag tag = itemTag;

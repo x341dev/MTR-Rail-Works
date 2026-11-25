@@ -52,8 +52,8 @@ public class RailWorkerConfigScreen extends ScreenExtension {
 	private static final int PANEL_HALF_WIDTH = 235;
 	private static final int PANEL_TOP_PADDING = 20;
 	private static final int PANEL_BOTTOM_PADDING = 20;
-	private static final int COLUMN_WIDTH = 112;
-	private static final int CHECKBOX_WIDTH = 100;
+	private static final int COLUMN_WIDTH = 94;
+	private static final int CHECKBOX_WIDTH = 86;
 	private static final int CHECKBOX_HEIGHT = 22;
 	private static final int SLIDER_WIDTH = 200;
 	private static final int SLIDER_HEIGHT = 20;
@@ -75,7 +75,8 @@ public class RailWorkerConfigScreen extends ScreenExtension {
 			"gui.mrw.rail_worker_mode_bridge",
 			"gui.mrw.rail_worker_mode_tunnel",
 			"gui.mrw.rail_worker_mode_walls_only",
-			"gui.mrw.rail_worker_mode_walls_ceiling"
+			"gui.mrw.rail_worker_mode_walls_ceiling",
+			"gui.mrw.rail_worker_mode_shape"
 	};
 
 	@Nullable
@@ -99,6 +100,9 @@ public class RailWorkerConfigScreen extends ScreenExtension {
 	@Nullable
 	private StepSlider heightSlider;
 
+	private final CheckboxWidgetExtension[] modeCheckboxes = new CheckboxWidgetExtension[MODE_LABEL_KEYS.length];
+
+
 	public RailWorkerConfigScreen(ItemStack itemStack) {
 		super(TextHelper.translatable("gui.mrw.rail_worker_title"));
 		final CompoundTag tag = itemStack.getOrCreateTag();
@@ -117,7 +121,7 @@ public class RailWorkerConfigScreen extends ScreenExtension {
 
 	private int modeColumnCenterX(int column) {
 		final int centerX = getWidthMapped() / 2;
-		return centerX - COLUMN_WIDTH * 2 + COLUMN_WIDTH * column + COLUMN_WIDTH / 2;
+		return centerX - COLUMN_WIDTH * MODE_LABEL_KEYS.length / 2 + COLUMN_WIDTH * column + COLUMN_WIDTH / 2;
 	}
 
 	private int replaceLabelWidth() {
@@ -142,6 +146,7 @@ public class RailWorkerConfigScreen extends ScreenExtension {
 			} else if (bit == RailWorkerMode.WALLS_CEILING) {
 				wallsCeilingCheckbox = checkbox;
 			}
+			modeCheckboxes[column] = checkbox;
 		}
 
 		final int centerX = getWidthMapped() / 2;
@@ -175,13 +180,26 @@ public class RailWorkerConfigScreen extends ScreenExtension {
 
 	private void setModeBit(int bit, boolean checked) {
 		if (checked) {
-			mode |= bit;
-			if (bit == RailWorkerMode.WALLS_ONLY && wallsCeilingCheckbox != null) {
-				mode &= ~RailWorkerMode.WALLS_CEILING;
-				wallsCeilingCheckbox.setChecked(false);
-			} else if (bit == RailWorkerMode.WALLS_CEILING && wallsOnlyCheckbox != null) {
-				mode &= ~RailWorkerMode.WALLS_ONLY;
-				wallsOnlyCheckbox.setChecked(false);
+			if (bit == RailWorkerMode.SHAPE) {
+				mode = RailWorkerMode.SHAPE;
+				for (int column = 0; column < modeCheckboxes.length; column++) {
+					if ((1 << column) != bit && modeCheckboxes[column] != null) {
+						modeCheckboxes[column].setChecked(false);
+					}
+				}
+			} else {
+				mode = (mode | bit) & ~RailWorkerMode.SHAPE;
+				final CheckboxWidgetExtension shapeCheckBox = modeCheckboxes[modeCheckboxes.length - 1];
+				if (shapeCheckBox != null) {
+					shapeCheckBox.setChecked(false);
+				}
+				if (bit == RailWorkerMode.WALLS_ONLY && wallsCeilingCheckbox != null) {
+					mode &= ~RailWorkerMode.WALLS_CEILING;
+					wallsCeilingCheckbox.setChecked(false);
+				} else if (bit == RailWorkerMode.WALLS_CEILING && wallsOnlyCheckbox != null) {
+					mode &= ~RailWorkerMode.WALLS_ONLY;
+					wallsOnlyCheckbox.setChecked(false);
+				}
 			}
 		} else {
 			mode &= ~bit;

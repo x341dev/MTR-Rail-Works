@@ -11,6 +11,7 @@ public class ShapeProfile {
     public static final int SIZE = 9;
     public static final int MAX_PALETTE = 8;
     public static final byte EMPTY = -1;
+    public static final int RAIL_ROW = 2;
 
     private static final String KEY_PALETTE_SIZE = "mrw_shape_palette_size";
     private static final String KEY_PALETTE_PREFIX = "mrw_shape_palette_";
