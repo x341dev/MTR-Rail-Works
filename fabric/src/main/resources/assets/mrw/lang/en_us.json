@@ -69,6 +69,8 @@
   "gui.mrw.shape_designer_invalid_block": "Unknown block or it has no item",
   "gui.mrw.shape_designer_hand_invalid": "Hold a block in your main hand",
   "gui.mrw.shape_designer_palette_full": "Palette is full (8 blocks)",
+  "gui.mrw.shape_designer_search": "Search blocks",
+  "gui.mrw.shape_designer_eraser": "Eraser (right click also erases)",
   "command.mrw.debug_on": "MRW debug logging enabled",
   "command.mrw.debug_off": "MRW debug logging disabled",
   "block.mrw.shape_designer": "Shape Designer"
