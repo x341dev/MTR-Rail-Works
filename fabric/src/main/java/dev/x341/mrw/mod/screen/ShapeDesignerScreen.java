@@ -174,8 +174,11 @@ public class ShapeDesignerScreen extends ScreenExtension {
                 final int y = top + (ShapeProfile.SIZE - 1 - row) * CELL;
                 final String id = profile.getBlockId(column, row);
                 // The centre column (the rail's column) gets a lighter border
-                guiDrawing.drawRectangle(x, y, x + CELL, y + CELL, column == ShapeProfile.SIZE / 2 ? 0xFF8899AA : 0xFF000000);
-                guiDrawing.drawRectangle(x + 1, y + 1, x + CELL - 1, y + CELL - 1, id == null ? 0xFF303030 : slotColor(id));
+                final boolean railCell = column == ShapeProfile.SIZE / 2 && row == ShapeProfile.RAIL_ROW;
+                final int border = railCell ? 0xFFFF9900 : column == ShapeProfile.SIZE / 2 ? 0xFF8899AA : 0xFF000000;
+                final int inset = railCell ? 3 : 1;
+                guiDrawing.drawRectangle(x, y, x + CELL, y + CELL, border);
+                guiDrawing.drawRectangle(x + inset, y + inset, x + CELL - inset, y + CELL - inset, id == null ? 0xFF303030 : slotColor(id));
                 if (id != null) {
                     addIcon(id, x + 2, y + 2);
                 }
@@ -210,10 +213,15 @@ public class ShapeDesignerScreen extends ScreenExtension {
         }
         guiDrawing.finishDrawingRectangle();
 
+
+
         graphicsHolder.drawCenteredText(TextHelper.translatable("gui.mrw.shape_designer_title"), left + GRID / 2, top - 16, 0xFFFFFFFF);
         for (int row = 0; row < ShapeProfile.SIZE; row++) {
             for (int column = 0; column < ShapeProfile.SIZE; column++) {
                 final String id = profile.getBlockId(column, row);
+                if (column == ShapeProfile.SIZE / 2 && row == ShapeProfile.RAIL_ROW && id == null) {
+                    graphicsHolder.drawCenteredText("=", left + column * CELL + CELL / 2, top + (ShapeProfile.SIZE - 1 - row) * CELL + 6, 0xFFFF9900);
+                }
                 if (id != null) {
                     drawInitial(graphicsHolder, id, left + column * CELL + CELL / 2, top + (ShapeProfile.SIZE - 1 - row) * CELL + 6);
                 }
@@ -237,6 +245,7 @@ public class ShapeDesignerScreen extends ScreenExtension {
         if (!message.isEmpty()) {
             graphicsHolder.drawText(message, sideLeft, infoY + 12, 0xFFFF5555, false, GraphicsHolder.getDefaultLight());
         }
+        graphicsHolder.drawText(TextHelper.translatable("gui.mrw.shape_designer_rail_marker").getString(), sideLeft, infoY + 24, 0xFFFF9900, false, GraphicsHolder.getDefaultLight());
 
         super.render(graphicsHolder, mouseX, mouseY, delta);
     }

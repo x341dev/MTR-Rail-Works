@@ -71,6 +71,7 @@
   "gui.mrw.shape_designer_palette_full": "Palette is full (8 blocks)",
   "gui.mrw.shape_designer_search": "Search blocks",
   "gui.mrw.shape_designer_eraser": "Eraser (right click also erases)",
+  "gui.mrw.shape_designer_rail_marker": "Orange cell: rail position",
   "command.mrw.debug_on": "MRW debug logging enabled",
   "command.mrw.debug_off": "MRW debug logging disabled",
   "block.mrw.shape_designer": "Shape Designer"

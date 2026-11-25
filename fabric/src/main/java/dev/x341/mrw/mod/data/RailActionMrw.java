@@ -41,6 +41,7 @@ public class RailActionMrw {
 	private final ObjectOpenHashSet<BlockPos> blacklistedPositions = new ObjectOpenHashSet<>();
 	private ShapeProfile shapeProfile;
 	private BlockState[] shapeStates;
+	private BlockState[][] rotatedStates;
 
 	private static final double INCREMENT = 0.1;
 	// rail.railMath.getPosition() runs curved segments through spline/trig math (unlike straight
@@ -198,6 +199,9 @@ public class RailActionMrw {
 			distance += INCREMENT;
 			final Vector pos2 = rail.railMath.getPosition(distance, false);
 			final Vector vec3 = new Vector(pos2.x - pos1.x, 0, pos2.z - pos1.x).normalize().rotateY((float) Math.PI / 2);
+			final double forwardX = invertWallSide ? pos2.x - pos1.x : pos1.x - pos2.x;
+			final double forwardZ = invertWallSide ? pos2.z - pos1.z : pos1.z - pos2.z;
+			final BlockRotation rotation = rotationFor(forwardX, forwardZ);
 
 			for (double x = -half - 0.5; x < half + 0.5; x+= INCREMENT) {
 				final double signedX = invertWallSide ? -x : x;
@@ -206,7 +210,7 @@ public class RailActionMrw {
 				for (int row = 0; row < ShapeProfile.SIZE; row++) {
 					final byte cell = shapeProfile.getCell(column, row);
 					if (cell != ShapeProfile.EMPTY && cell < shapeStates.length) {
-						placeShape(fromVector(editPos.add(0, row - ShapeProfile.RAIL_ROW, 0)), shapeStates[cell]);
+						placeShape(fromVector(editPos.add(0, row - ShapeProfile.RAIL_ROW, 0)), rotatedState(cell, rotation));
 					}
 				}
 			}
@@ -317,4 +321,26 @@ public class RailActionMrw {
 		return Init.newBlockPos(vector.x, vector.y, vector.z);
 	}
 
+	private static BlockRotation rotationFor(double forwardX, double forwardZ) {
+		if (forwardX == 0 && forwardZ == 0) {
+			return BlockRotation.NONE;
+		}
+		if (Math.abs(forwardX) >= Math.abs(forwardZ)) {
+			return forwardX > 0 ? BlockRotation.CLOCKWISE_90 : BlockRotation.COUNTERCLOCKWISE_90;
+		}
+		return forwardZ > 0 ? BlockRotation.CLOCKWISE_180 : BlockRotation.NONE;
+	}
+
+	private BlockState rotatedState(int paletteIndex, BlockRotation rotation) {
+		if (rotatedStates == null) {
+			rotatedStates = new BlockState[4][shapeStates.length];
+		}
+		final int rotationIndex = rotation.ordinal();
+		BlockState state = rotatedStates[rotationIndex][paletteIndex];
+		if (state == null && shapeStates[paletteIndex] != null) {
+			state = shapeStates[paletteIndex].rotate(rotation);
+			rotatedStates[rotationIndex][paletteIndex] = state;
+		}
+		return state;
+	}
 }
