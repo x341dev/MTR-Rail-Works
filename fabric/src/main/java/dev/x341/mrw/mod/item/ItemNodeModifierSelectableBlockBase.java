@@ -39,14 +39,20 @@ public abstract class ItemNodeModifierSelectableBlockBase extends ItemExtension 
 				if (context.getWorld().isClient()) {
 					onSneakNodeClick(context, blockPos);
 				}
-			} else if (!context.getWorld().isClient()) {
+				return ActionResult.SUCCESS;
+			}
+			if (!context.getWorld().isClient()) {
 				saveOrClearBlock(context, player);
 			}
-		} else if (isNode && context.getWorld().isClient()) {
-			onNodeClick(context, blockPos);
+			return ActionResult.SUCCESS;
 		}
-
-		return ActionResult.SUCCESS;
+		if (isNode) {
+			if (context.getWorld().isClient()) {
+				onNodeClick(context, blockPos);
+			}
+			return ActionResult.SUCCESS;
+		}
+		return ActionResult.PASS;
 	}
 
 	/** Sneak-clicking a non-node block saves or clears it as this item's currently targeted material (server-side only). */
