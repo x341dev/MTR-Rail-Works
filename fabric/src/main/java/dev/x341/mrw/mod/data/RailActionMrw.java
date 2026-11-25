@@ -198,19 +198,44 @@ public class RailActionMrw {
 			final Vector pos1 = rail.railMath.getPosition(distance, false);
 			distance += INCREMENT;
 			final Vector pos2 = rail.railMath.getPosition(distance, false);
-			final Vector vec3 = new Vector(pos2.x - pos1.x, 0, pos2.z - pos1.x).normalize().rotateY((float) Math.PI / 2);
-			final double forwardX = invertWallSide ? pos2.x - pos1.x : pos1.x - pos2.x;
-			final double forwardZ = invertWallSide ? pos2.z - pos1.z : pos1.z - pos2.z;
-			final BlockRotation rotation = rotationFor(forwardX, forwardZ);
+			final double tangentX = pos2.x - pos1.x;
+			final double tangentZ = pos2.z - pos1.z;
+			final double tangentLength = Math.sqrt(tangentX * tangentX + tangentZ * tangentZ);
 
-			for (double x = -half - 0.5; x < half + 0.5; x+= INCREMENT) {
-				final double signedX = invertWallSide ? -x : x;
-				final int column = Math.max(0, Math.min(ShapeProfile.SIZE - 1, (int) Math.floor(signedX + half + 0.5)));
-				final Vector editPos = pos1.add(vec3.multiply(x, 0, x));
-				for (int row = 0; row < ShapeProfile.SIZE; row++) {
-					final byte cell = shapeProfile.getCell(column, row);
-					if (cell != ShapeProfile.EMPTY && cell < shapeStates.length) {
-						placeShape(fromVector(editPos.add(0, row - ShapeProfile.RAIL_ROW, 0)), rotatedState(cell, rotation));
+			if (tangentLength > 1e-9) {
+				final double unitX = tangentX / tangentLength;
+				final double unitZ = tangentZ / tangentLength;
+				// Same perpendicular as the wall builders, so left/right keeps the same convention
+				final Vector perpendicular = new Vector(tangentX, 0, tangentZ).normalize().rotateY((float) Math.PI / 2);
+				// Travel direction as the player clicked it, for rotating directional blocks
+				final BlockRotation rotation = rotationFor(invertWallSide ? tangentX : -tangentX, invertWallSide ? tangentZ : -tangentZ);
+				final int baseY = (int) Math.floor(pos1.y + WHOLE_NUMBER_EPSILON);
+				final int minX = (int) Math.floor(pos1.x) - half - 1;
+				final int minZ = (int) Math.floor(pos1.z) - half - 1;
+
+				if (dev.x341.mrw.mod.MrwDebug.isEnabled() && distance <= 2 * INCREMENT) {
+					dev.x341.mrw.mod.Init.LOGGER.info("[MRW debug] shape: start pos=({}, {}, {}) tangent=({}, {}) invert={} rotation={}", pos1.x, pos1.y, pos1.z, tangentX, tangentZ, invertWallSide, rotation);
+				}
+
+				for (int blockX = minX; blockX <= minX + 2 * (half + 1); blockX++) {
+					for (int blockZ = minZ; blockZ <= minZ + 2 * (half + 1); blockZ++) {
+						final double deltaX = blockX + 0.5 - pos1.x;
+						final double deltaZ = blockZ + 0.5 - pos1.z;
+						// Only blocks whose centre is level with this rail sample, so each block lands on one column
+						if (Math.abs(deltaX * unitX + deltaZ * unitZ) > INCREMENT) {
+							continue;
+						}
+						final double offset = deltaX * perpendicular.x + deltaZ * perpendicular.z;
+						if (Math.abs(offset) >= half + 0.5) {
+							continue;
+						}
+						final int column = Math.max(0, Math.min(ShapeProfile.SIZE - 1, (int) Math.floor((invertWallSide ? -offset : offset) + half + 0.5)));
+						for (int row = 0; row < ShapeProfile.SIZE; row++) {
+							final byte cell = shapeProfile.getCell(column, row);
+							if (cell != ShapeProfile.EMPTY && cell < shapeStates.length) {
+								placeShape(new BlockPos(blockX, baseY + row - ShapeProfile.RAIL_ROW, blockZ), rotatedState(cell, rotation));
+							}
+						}
 					}
 				}
 			}
