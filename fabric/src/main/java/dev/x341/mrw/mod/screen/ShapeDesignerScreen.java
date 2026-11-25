@@ -2,15 +2,12 @@ package dev.x341.mrw.mod.screen;
 
 import dev.x341.mrw.mod.blockentity.BlockEntityShapeDesigner;
 import dev.x341.mrw.mod.client.InitClient;
+import dev.x341.mrw.mod.client.ShapeDesignerIcons;
 import dev.x341.mrw.mod.data.BlockCatalog;
 import dev.x341.mrw.mod.data.ShapeBlocks;
 import dev.x341.mrw.mod.data.ShapeProfile;
 import dev.x341.mrw.mod.packet.PacketUpdateShapeDesigner;
-import org.mtr.mapping.holder.BlockPos;
-import org.mtr.mapping.holder.ClickableWidget;
-import org.mtr.mapping.holder.ClientPlayerEntity;
-import org.mtr.mapping.holder.CompoundTag;
-import org.mtr.mapping.holder.MinecraftClient;
+import org.mtr.mapping.holder.*;
 import org.mtr.mapping.mapper.ButtonWidgetExtension;
 import org.mtr.mapping.mapper.GraphicsHolder;
 import org.mtr.mapping.mapper.GuiDrawing;
@@ -141,6 +138,23 @@ public class ShapeDesignerScreen extends ScreenExtension {
         onClose2();
     }
 
+    private static int slotColor(String id) {
+        return ShapeBlocks.toStack(id) != null ? 0xFF373737 : colorOf(id);
+    }
+
+    private static void addIcon(String id, int x, int y) {
+        final ItemStack stack = ShapeBlocks.toStack(id);
+        if (stack != null) {
+            ShapeDesignerIcons.add(stack, x, y);
+        }
+    }
+
+    private static void drawInitial(GraphicsHolder graphicsHolder, String id, int centerX, int y) {
+        if (ShapeBlocks.toStack(id) == null) {
+            graphicsHolder.drawCenteredText(initial(id), centerX, y, 0xFFFFFFFF);
+        }
+    }
+
     @Override
     public void render(GraphicsHolder graphicsHolder, int mouseX, int mouseY, float delta) {
         renderBackground(graphicsHolder);
@@ -150,6 +164,7 @@ public class ShapeDesignerScreen extends ScreenExtension {
         final int listY = listY();
 
         hoveredId = null;
+        ShapeDesignerIcons.clear();
         final GuiDrawing guiDrawing = new GuiDrawing(graphicsHolder);
         guiDrawing.beginDrawingRectangle();
         guiDrawing.drawRectangle(left - 4, top - 4, left + GRID + 4, top + GRID + 4, 0xC0101010);
@@ -158,15 +173,23 @@ public class ShapeDesignerScreen extends ScreenExtension {
                 final int x = left + column * CELL;
                 final int y = top + (ShapeProfile.SIZE - 1 - row) * CELL;
                 final String id = profile.getBlockId(column, row);
+                // The centre column (the rail's column) gets a lighter border
                 guiDrawing.drawRectangle(x, y, x + CELL, y + CELL, column == ShapeProfile.SIZE / 2 ? 0xFF8899AA : 0xFF000000);
-                guiDrawing.drawRectangle(x + 1, y + 1, x + CELL - 1, y + CELL - 1, id == null ? 0xFF303030 : colorOf(id));
+                guiDrawing.drawRectangle(x + 1, y + 1, x + CELL - 1, y + CELL - 1, id == null ? 0xFF303030 : slotColor(id));
+                if (id != null) {
+                    addIcon(id, x + 2, y + 2);
+                }
             }
         }
 
         for (int i = 0; i < ShapeProfile.MAX_PALETTE; i++) {
             final int x = sideLeft + i * SLOT;
+            final String id = i < profile.getPalette().size() ? profile.getPalette().get(i) : null;
             guiDrawing.drawRectangle(x, top, x + SLOT, top + SLOT, i == brush ? 0xFFFFFFFF : 0xFF555555);
-            guiDrawing.drawRectangle(x + 1, top + 1, x + SLOT - 1, top + SLOT - 1, i < profile.getPalette().size() ? colorOf(profile.getPalette().get(i)) : 0xFF202020);
+            guiDrawing.drawRectangle(x + 1, top + 1, x + SLOT - 1, top + SLOT - 1, id == null ? 0xFF202020 : slotColor(id));
+            if (id != null) {
+                addIcon(id, x + 1, top + 1);
+            }
         }
 
         for (int slot = 0; slot < LIST_COLUMNS * LIST_ROWS; slot++) {
@@ -174,14 +197,16 @@ public class ShapeDesignerScreen extends ScreenExtension {
             if (index >= filtered.size()) {
                 break;
             }
+            final String id = filtered.get(index);
             final int x = sideLeft + (slot % LIST_COLUMNS) * SLOT;
             final int y = listY + (slot / LIST_COLUMNS) * SLOT;
             final boolean hovered = mouseX >= x && mouseX < x + SLOT && mouseY >= y && mouseY < y + SLOT;
             if (hovered) {
-                hoveredId = filtered.get(index);
+                hoveredId = id;
             }
             guiDrawing.drawRectangle(x, y, x + SLOT, y + SLOT, hovered ? 0xFFFFFFFF : 0xFF000000);
-            guiDrawing.drawRectangle(x + 1, y + 1, x + SLOT - 1, y + SLOT - 1, colorOf(filtered.get(index)));
+            guiDrawing.drawRectangle(x + 1, y + 1, x + SLOT - 1, y + SLOT - 1, slotColor(id));
+            addIcon(id, x + 1, y + 1);
         }
         guiDrawing.finishDrawingRectangle();
 
@@ -190,19 +215,19 @@ public class ShapeDesignerScreen extends ScreenExtension {
             for (int column = 0; column < ShapeProfile.SIZE; column++) {
                 final String id = profile.getBlockId(column, row);
                 if (id != null) {
-                    graphicsHolder.drawCenteredText(initial(id), left + column * CELL + CELL / 2, top + (ShapeProfile.SIZE - 1 - row) * CELL + 6, 0xFFFFFFFF);
+                    drawInitial(graphicsHolder, id, left + column * CELL + CELL / 2, top + (ShapeProfile.SIZE - 1 - row) * CELL + 6);
                 }
             }
         }
         for (int i = 0; i < profile.getPalette().size(); i++) {
-            graphicsHolder.drawCenteredText(initial(profile.getPalette().get(i)), sideLeft + i * SLOT + SLOT / 2, top + 5, 0xFFFFFFFF);
+            drawInitial(graphicsHolder, profile.getPalette().get(i), sideLeft + i * SLOT + SLOT / 2, top + 5);
         }
         for (int slot = 0; slot < LIST_COLUMNS * LIST_ROWS; slot++) {
             final int index = scrollRow * LIST_COLUMNS + slot;
             if (index >= filtered.size()) {
                 break;
             }
-            graphicsHolder.drawCenteredText(initial(filtered.get(index)), sideLeft + (slot % LIST_COLUMNS) * SLOT + SLOT / 2, listY + (slot / LIST_COLUMNS) * SLOT + 5, 0xFFFFFFFF);
+            drawInitial(graphicsHolder, filtered.get(index), sideLeft + (slot % LIST_COLUMNS) * SLOT + SLOT / 2, listY + (slot / LIST_COLUMNS) * SLOT + 5);
         }
 
         final String selected = brush >= 0 && brush < profile.getPalette().size() ? profile.getPalette().get(brush) : TextHelper.translatable("gui.mrw.shape_designer_eraser").getString();

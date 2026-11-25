@@ -32,6 +32,8 @@
 		}
 		#endif
 
+		MinecraftForge.EVENT_BUS.register(new ShapeDesignerIconHandler());
+
 		private void handleScroll(InputEvent event) {
 			final LocalPlayer rawPlayer = Minecraft.getInstance().player;
 			if (rawPlayer == null || !Screen.hasControlDown()) {
@@ -45,5 +47,13 @@
 
 			RailWorkerClientHelper.cycleTargetSlot(player);
 			event.setCanceled(true);
+		}
+
+		private static org.mtr.mapping.holder.BlockState resolveBlock(String id) {
+			final net.minecraft.resources.ResourceLocation location = net.minecraft.resources.ResourceLocation.tryParse(id);
+			if (location == null || !net.minecraftforge.registries.ForgeRegistries.BLOCKS.containsKey(location)) {
+				return null;
+			}
+			return new org.mtr.mapping.holder.BlockState(net.minecraftforge.registries.ForgeRegistries.BLOCKS.getValue(location).defaultBlockState());
 		}
 	}

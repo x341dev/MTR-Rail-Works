@@ -18,6 +18,7 @@ public final class MRWFabricClient implements ClientModInitializer {
         #else
         BlockCatalog.setSupplier(() -> net.minecraft.util.registry.Registry.BLOCK.getIds().stream().map(Object::toString).collect(java.util.stream.Collectors.toList()));
         #endif
+        ShapeDesignerIconRenderer.register();
         InitClient.init();
     }
 

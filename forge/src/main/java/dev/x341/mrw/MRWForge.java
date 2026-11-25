@@ -20,6 +20,7 @@ public final class MRWForge {
         Init.init();
         if (FMLEnvironment.dist == Dist.CLIENT) {
             BlockCatalog.setSupplier(() -> net.minecraftforge.registries.ForgeRegistries.BLOCKS.getKeys().stream().map(Object::toString).collect(java.util.stream.Collectors.toList()));
+            ShapeBlocks.setResolver(MRWForge::resolveBlock);
             InitClient.init();
             MinecraftForge.EVENT_BUS.register(new RailWorkerClientHandler());
         }
