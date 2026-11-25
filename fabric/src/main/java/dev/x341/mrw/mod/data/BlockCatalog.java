@@ -29,4 +29,8 @@ public final class BlockCatalog {
         }
         return cache;
     }
+
+    public static boolean matches(String id, String query) {
+        return query.isEmpty() || id.contains(query) || ShapeBlocks.getName(id).toLowerCase().contains(query);
+    }
 }

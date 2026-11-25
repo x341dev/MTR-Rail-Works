@@ -6,10 +6,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-public class ShapeProfile {
+public final class ShapeProfile {
 
     public static final int SIZE = 9;
-    public static final int MAX_PALETTE = 8;
+    public static final int MAX_PALETTE = 16;
     public static final byte EMPTY = -1;
     public static final int RAIL_ROW = 2;
 
@@ -55,6 +55,26 @@ public class ShapeProfile {
         Arrays.fill(cells, EMPTY);
     }
 
+    public void compact() {
+        final int[] newIndex = new int[palette.size()];
+        final List<String> kept = new ArrayList<>();
+        for (int i = 0; i < palette.size(); i++) {
+            boolean used = false;
+            for (final byte cell : cells) {
+                used |= cell == i;
+            }
+            newIndex[i] = used ? kept.size() : -1;
+            if (used) {
+                kept.add(palette.get(i));
+            }
+        }
+        for (int i = 0; i < cells.length; i++) {
+            cells[i] = cells[i] >= 0 && cells[i] < newIndex.length ? (byte) newIndex[cells[i]] : EMPTY;
+        }
+        palette.clear();
+        palette.addAll(kept);
+    }
+
     public int getOrAddPaletteIndex(String blockId) {
         final int existing = palette.indexOf(blockId);
         if (existing >= 0) {
@@ -90,7 +110,6 @@ public class ShapeProfile {
         if (savedCells.length == profile.cells.length) {
             for (int i = 0; i < savedCells.length; i++) {
                 profile.cells[i] = savedCells[i] >= 0 && savedCells[i] < paletteSize ? savedCells[i] : EMPTY;
-
             }
         }
         return profile;
@@ -101,10 +120,10 @@ public class ShapeProfile {
     }
 
     public static void removeTag(CompoundTag tag) {
-		tag.remove(KEY_PALETTE_SIZE);
-		for (int i = 0; i < MAX_PALETTE; i++) {
-			tag.remove(KEY_PALETTE_PREFIX + i);
-		}
-		tag.remove(KEY_CELLS);
-	}
+        tag.remove(KEY_PALETTE_SIZE);
+        for (int i = 0; i < MAX_PALETTE; i++) {
+            tag.remove(KEY_PALETTE_PREFIX + i);
+        }
+        tag.remove(KEY_CELLS);
+    }
 }

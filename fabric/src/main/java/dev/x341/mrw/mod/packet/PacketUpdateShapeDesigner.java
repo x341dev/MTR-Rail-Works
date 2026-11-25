@@ -29,12 +29,12 @@ public final class PacketUpdateShapeDesigner extends PacketHandler {
 
     public PacketUpdateShapeDesigner(BlockPos blockPos, ShapeProfile profile) {
         this.blockPos = blockPos.asLong();
-        palette = String.join(",", profile.getPalette());
+        palette = String.join("|", profile.getPalette());
         final StringBuilder stringBuilder = new StringBuilder();
         for (int row = 0; row < ShapeProfile.SIZE; row++) {
             for (int column = 0; column < ShapeProfile.SIZE; column++) {
                 final byte cell = profile.getCell(column, row);
-                stringBuilder.append(cell == ShapeProfile.EMPTY ? '-' : (char) ('0' + cell));
+                stringBuilder.append(cell == ShapeProfile.EMPTY ? '-' : Character.forDigit(cell, 16));
             }
         }
         cells = stringBuilder.toString();
@@ -65,8 +65,8 @@ public final class PacketUpdateShapeDesigner extends PacketHandler {
 
         final ShapeProfile profile = new ShapeProfile();
         if (!palette.isEmpty()) {
-            for (final String rawId : palette.split(",")) {
-                final String id = ShapeBlocks.normalize(rawId);
+            for (final String rawId : palette.split("\\|")) {
+                final String id = ShapeBlocks.normalizeEntry(rawId);
                 if (id == null || ShapeBlocks.toState(id) == null || profile.getOrAddPaletteIndex(id) < 0) {
                     return;
                 }
@@ -77,7 +77,7 @@ public final class PacketUpdateShapeDesigner extends PacketHandler {
             if (character == '-') {
                 continue;
             }
-            final int index = character - '0';
+            final int index = Character.digit(character, 16);
             if (index < 0 || index >= profile.getPalette().size()) {
                 return;
             }
@@ -86,6 +86,7 @@ public final class PacketUpdateShapeDesigner extends PacketHandler {
 
         final BlockEntityShapeDesigner shapeDesigner = (BlockEntityShapeDesigner) blockEntity.data;
         shapeDesigner.setProfile(profile);
+        // Push the new NBT to every client tracking this chunk
         final BlockState state = shapeDesigner.getCachedState2();
         world.updateListeners(pos, state, state, 3);
     }
