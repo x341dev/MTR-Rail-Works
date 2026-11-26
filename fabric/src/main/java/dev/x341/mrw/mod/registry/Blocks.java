@@ -1,6 +1,6 @@
 package dev.x341.mrw.mod.registry;
 
-import dev.x341.mrw.blocks.BlockShapeDesigner;
+import dev.x341.mrw.mod.blocks.BlockShapeDesigner;
 import dev.x341.mrw.mod.Init;
 import org.mtr.mapping.holder.Block;
 import org.mtr.mapping.holder.Identifier;

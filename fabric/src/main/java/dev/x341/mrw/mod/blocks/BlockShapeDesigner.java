@@ -1,4 +1,4 @@
-package dev.x341.mrw.blocks;
+package dev.x341.mrw.mod.blocks;
 
 import dev.x341.mrw.mod.blockentity.BlockEntityShapeDesigner;
 import dev.x341.mrw.mod.client.ShapeDesignerClientHelper;
