@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.2.3](https://github.com/x341dev/MTR-Rail-Works/compare/v0.2.2...v0.2.3) (2026-09-22)
+
+
+### Bug Fixes
+
+* cap client-supplied path counts in rail worker packets ([ea25113](https://github.com/x341dev/MTR-Rail-Works/commit/ea251133b339dc681c04ca3d3140b13e2e8f2e35))
+* change client functions to ClientHelper on Forge's side ([2d57a4d](https://github.com/x341dev/MTR-Rail-Works/commit/2d57a4d2117e21cdb78c48a188b2aa08f623342d))
+* prevent shell injection via workflow tag interpolation ([8d597d9](https://github.com/x341dev/MTR-Rail-Works/commit/8d597d9cc35723e2b4292d3ca948513ce85e3581))
+* resolve Rail Worker wall side by pair position, not selection order ([12e841a](https://github.com/x341dev/MTR-Rail-Works/commit/12e841af96d84aa36dd463e19d91871cf12c585c))
+* separate Rail Worker client only logic to dedicated class ([3fd56b6](https://github.com/x341dev/MTR-Rail-Works/commit/3fd56b6a9f97be094b64a562822d5c34f08e6893))
+
 ## [0.2.2](https://github.com/x341dev/MTR-Rail-Works/compare/v0.2.1...v0.2.2) (2026-07-21)
 
 
