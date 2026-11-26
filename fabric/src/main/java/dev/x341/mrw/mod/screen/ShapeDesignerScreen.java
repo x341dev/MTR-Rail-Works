@@ -7,16 +7,16 @@ import dev.x341.mrw.mod.data.BlockCatalog;
 import dev.x341.mrw.mod.data.ShapeBlocks;
 import dev.x341.mrw.mod.data.ShapeProfile;
 import dev.x341.mrw.mod.packet.PacketUpdateShapeDesigner;
+import dev.x341.mrw.mod.ui.UiStyle;
+import dev.x341.mrw.mod.ui.ScreenBase;
 import org.mtr.mapping.holder.BlockPos;
 import org.mtr.mapping.holder.ClickableWidget;
 import org.mtr.mapping.holder.ClientPlayerEntity;
 import org.mtr.mapping.holder.CompoundTag;
 import org.mtr.mapping.holder.ItemStack;
 import org.mtr.mapping.holder.MinecraftClient;
-import org.mtr.mapping.mapper.ButtonWidgetExtension;
 import org.mtr.mapping.mapper.GraphicsHolder;
 import org.mtr.mapping.mapper.GuiDrawing;
-import org.mtr.mapping.mapper.ScreenExtension;
 import org.mtr.mapping.mapper.TextFieldWidgetExtension;
 import org.mtr.mapping.mapper.TextHelper;
 import org.mtr.mapping.tool.TextCase;
@@ -30,7 +30,7 @@ import java.util.List;
  * empties cells (leaves the world untouched), middle click picks the entry of a cell. The Air entry
  * carves blocks away; an empty cell does nothing. Row 0 is the lowest row, drawn at the bottom.
  */
-public class ShapeDesignerScreen extends MrwScreenBase {
+public class ShapeDesignerScreen extends ScreenBase {
 
     private static final int CELL = 20;
     private static final int GRID = CELL * ShapeProfile.SIZE;
@@ -90,7 +90,7 @@ public class ShapeDesignerScreen extends MrwScreenBase {
     }
 
     private int searchY() {
-        return rotateY() + BUTTON_HEIGHT + 3;
+        return rotateY() + COMPONENT_HEIGHT + 3;
     }
 
     private int listY() {
@@ -116,7 +116,7 @@ public class ShapeDesignerScreen extends MrwScreenBase {
                 addToPalette(id);
             }
         });
-        final int row2Y = buttonsY + BUTTON_HEIGHT + 3;
+        final int row2Y = buttonsY + COMPONENT_HEIGHT + 3;
         addKeyButton(gridLeft(), row2Y, smallWidth, "gui.mrw.shape_designer_air", () -> addToPalette(ShapeBlocks.AIR));
         addKeyButton(gridLeft() + smallWidth + 3, row2Y, smallWidth, "gui.mrw.shape_designer_clear", () -> {
             profile.clear();
@@ -226,7 +226,7 @@ public class ShapeDesignerScreen extends MrwScreenBase {
 
         hoveredEntry = null;
         ShapeDesignerIcons.clear();
-        MrwUiStyle.roundedBox(graphicsHolder, left - 4, top - 4, GRID + 8, GRID + 8, MrwUiStyle.RADIUS, 0xC0101010, MrwUiStyle.PANEL_BORDER);
+        UiStyle.roundedBox(graphicsHolder, left - 4, top - 4, GRID + 8, GRID + 8, UiStyle.RADIUS, 0xC0101010, UiStyle.PANEL_BORDER);
         final GuiDrawing guiDrawing = new GuiDrawing(graphicsHolder);
         guiDrawing.beginDrawingRectangle();
         for (int row = 0; row < ShapeProfile.SIZE; row++) {
