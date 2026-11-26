@@ -30,7 +30,7 @@ import java.util.List;
  * empties cells (leaves the world untouched), middle click picks the entry of a cell. The Air entry
  * carves blocks away; an empty cell does nothing. Row 0 is the lowest row, drawn at the bottom.
  */
-public class ShapeDesignerScreen extends ScreenExtension {
+public class ShapeDesignerScreen extends MrwScreenBase {
 
     private static final int CELL = 20;
     private static final int GRID = CELL * ShapeProfile.SIZE;
@@ -41,8 +41,8 @@ public class ShapeDesignerScreen extends ScreenExtension {
     private static final int LIST_COLUMNS = 8;
     private static final int LIST_ROWS = 6;
     private static final int SIDE_WIDTH = SLOT * LIST_COLUMNS;
-    private static final int BUTTON_HEIGHT = 20;
-    private static final int CONTENT_HEIGHT = GRID + 8 + BUTTON_HEIGHT + 3 + BUTTON_HEIGHT;
+    private static final int PANEL_WIDTH = 2 * (PADDING + 4) + GRID + COLUMN_GAP + SIDE_WIDTH;
+    private static final int PANEL_HEIGHT = HEADER_HEIGHT + PADDING + 4 + 255 + PADDING;
     private static final int ERASER = -1;
 
     private final BlockPos blockPos;
@@ -60,21 +60,21 @@ public class ShapeDesignerScreen extends ScreenExtension {
     private int lastRow = -1;
 
     public ShapeDesignerScreen(BlockPos blockPos, BlockEntityShapeDesigner blockEntity) {
-        super(TextHelper.translatable("gui.mrw.shape_designer_title"));
+        super("gui.mrw.shape_designer_title", PANEL_WIDTH, PANEL_HEIGHT);
         this.blockPos = blockPos;
         this.blockEntity = blockEntity;
-        // Work on a copy so closing without saving changes nothing
+
         final CompoundTag tag = new CompoundTag();
         blockEntity.getProfile().writeTag(tag);
         profile = ShapeProfile.readTag(tag);
     }
 
     private int gridLeft() {
-        return (getWidthMapped() - (GRID + COLUMN_GAP + SIDE_WIDTH)) / 2;
+        return panelLeft() + PADDING + 4;
     }
 
     private int gridTop() {
-        return (getHeightMapped() - CONTENT_HEIGHT) / 2 + 8;
+        return contentTop() + 4;
     }
 
     private int sideLeft() {
@@ -98,7 +98,7 @@ public class ShapeDesignerScreen extends ScreenExtension {
     }
 
     @Override
-    protected void init2() {
+    protected void initContent() {
         searchField = new TextFieldWidgetExtension(sideLeft(), searchY(), SIDE_WIDTH, 18, 40, TextCase.LOWER, "\\p{Cntrl}", TextHelper.translatable("gui.mrw.shape_designer_search").getString());
         searchField.setChangedListener2(this::applyFilter);
         addChild(new ClickableWidget(searchField));
@@ -106,7 +106,7 @@ public class ShapeDesignerScreen extends ScreenExtension {
 
         final int buttonsY = gridTop() + GRID + 8;
         final int smallWidth = (GRID - 2 * 3) / 3;
-        addButton(gridLeft(), buttonsY, GRID, "gui.mrw.shape_designer_hand", () -> {
+        addKeyButton(gridLeft(), buttonsY, GRID, "gui.mrw.shape_designer_hand", () -> {
             final ClientPlayerEntity player = MinecraftClient.getInstance().getPlayerMapped();
             final ItemStack stack = player == null ? null : player.getMainHandStack();
             final String id = stack == null ? null : ShapeBlocks.fromStack(stack);
@@ -117,22 +117,22 @@ public class ShapeDesignerScreen extends ScreenExtension {
             }
         });
         final int row2Y = buttonsY + BUTTON_HEIGHT + 3;
-        addButton(gridLeft(), row2Y, smallWidth, "gui.mrw.shape_designer_air", () -> addToPalette(ShapeBlocks.AIR));
-        addButton(gridLeft() + smallWidth + 3, row2Y, smallWidth, "gui.mrw.shape_designer_clear", () -> {
+        addKeyButton(gridLeft(), row2Y, smallWidth, "gui.mrw.shape_designer_air", () -> addToPalette(ShapeBlocks.AIR));
+        addKeyButton(gridLeft() + smallWidth + 3, row2Y, smallWidth, "gui.mrw.shape_designer_clear", () -> {
             profile.clear();
             brush = ERASER;
         });
-        addButton(gridLeft() + 2 * (smallWidth + 3), row2Y, smallWidth, "gui.mrw.shape_designer_save", this::saveAndClose);
+        addKeyButton(gridLeft() + 2 * (smallWidth + 3), row2Y, smallWidth, "gui.mrw.shape_designer_save", this::saveAndClose);
 
         final int rotateWidth = (SIDE_WIDTH - 3 * 3) / 4;
-        addButton(sideLeft(), rotateY(), rotateWidth, "gui.mrw.shape_designer_rotate_x", () -> rotateBrush('x'));
-        addButton(sideLeft() + (rotateWidth + 3), rotateY(), rotateWidth, "gui.mrw.shape_designer_rotate_y", () -> rotateBrush('y'));
-        addButton(sideLeft() + 2 * (rotateWidth + 3), rotateY(), rotateWidth, "gui.mrw.shape_designer_rotate_z", () -> rotateBrush('z'));
-        addButton(sideLeft() + 3 * (rotateWidth + 3), rotateY(), rotateWidth, "gui.mrw.shape_designer_rotate_reset", this::resetBrush);
+        addKeyButton(sideLeft(), rotateY(), rotateWidth, "gui.mrw.shape_designer_rotate_x", () -> rotateBrush('x'));
+        addKeyButton(sideLeft() + (rotateWidth + 3), rotateY(), rotateWidth, "gui.mrw.shape_designer_rotate_y", () -> rotateBrush('y'));
+        addKeyButton(sideLeft() + 2 * (rotateWidth + 3), rotateY(), rotateWidth, "gui.mrw.shape_designer_rotate_z", () -> rotateBrush('z'));
+        addKeyButton(sideLeft() + 3 * (rotateWidth + 3), rotateY(), rotateWidth, "gui.mrw.shape_designer_rotate_reset", this::resetBrush);
     }
 
-    private void addButton(int x, int y, int width, String translationKey, Runnable onPress) {
-        addChild(new ClickableWidget(new ButtonWidgetExtension(x, y, width, BUTTON_HEIGHT, TextHelper.translatable(translationKey), button -> onPress.run())));
+    private void addKeyButton(int x, int y, int width, String translationKey, Runnable onPress) {
+        addButton(x, y, width, TextHelper.translatable(translationKey).getString(), onPress);
     }
 
     private void applyFilter(String text) {
@@ -191,7 +191,6 @@ public class ShapeDesignerScreen extends ScreenExtension {
 
     private void saveAndClose() {
         profile.compact();
-        // Update the local copy right away; the server also syncs it back to every client
         blockEntity.setProfile(profile);
         InitClient.REGISTRY_CLIENT.sendPacketToServer(new PacketUpdateShapeDesigner(blockPos, profile));
         onClose2();
@@ -219,8 +218,7 @@ public class ShapeDesignerScreen extends ScreenExtension {
     }
 
     @Override
-    public void render(GraphicsHolder graphicsHolder, int mouseX, int mouseY, float delta) {
-        renderBackground(graphicsHolder);
+    protected void renderContent(GraphicsHolder graphicsHolder, int mouseX, int mouseY) {
         final int left = gridLeft();
         final int top = gridTop();
         final int sideLeft = sideLeft();
@@ -228,9 +226,9 @@ public class ShapeDesignerScreen extends ScreenExtension {
 
         hoveredEntry = null;
         ShapeDesignerIcons.clear();
+        MrwUiStyle.roundedBox(graphicsHolder, left - 4, top - 4, GRID + 8, GRID + 8, MrwUiStyle.RADIUS, 0xC0101010, MrwUiStyle.PANEL_BORDER);
         final GuiDrawing guiDrawing = new GuiDrawing(graphicsHolder);
         guiDrawing.beginDrawingRectangle();
-        guiDrawing.drawRectangle(left - 4, top - 4, left + GRID + 4, top + GRID + 4, 0xC0101010);
         for (int row = 0; row < ShapeProfile.SIZE; row++) {
             for (int column = 0; column < ShapeProfile.SIZE; column++) {
                 final int x = left + column * CELL;
@@ -282,8 +280,6 @@ public class ShapeDesignerScreen extends ScreenExtension {
         }
         guiDrawing.finishDrawingRectangle();
 
-        // Text goes after the rectangles so it is never covered
-        graphicsHolder.drawCenteredText(TextHelper.translatable("gui.mrw.shape_designer_title"), left + GRID / 2, top - 16, 0xFFFFFFFF);
         for (int row = 0; row < ShapeProfile.SIZE; row++) {
             for (int column = 0; column < ShapeProfile.SIZE; column++) {
                 final String entry = profile.getBlockId(column, row);
@@ -323,8 +319,6 @@ public class ShapeDesignerScreen extends ScreenExtension {
             }
         }
         graphicsHolder.drawText(TextHelper.translatable("gui.mrw.shape_designer_rail_marker").getString(), sideLeft, infoY + 22, 0xFFFF9900, false, GraphicsHolder.getDefaultLight());
-
-        super.render(graphicsHolder, mouseX, mouseY, delta);
     }
 
     private static String describe(String entry) {
@@ -345,7 +339,6 @@ public class ShapeDesignerScreen extends ScreenExtension {
         profile.setCell(column, row, button == 1 || brush == ERASER ? ShapeProfile.EMPTY : (byte) brush);
     }
 
-    /** Paints a straight line of cells so a fast drag leaves no gaps (Bresenham). */
     private void paintLine(int fromColumn, int fromRow, int toColumn, int toRow, int button) {
         int column = fromColumn;
         int row = fromRow;
@@ -376,7 +369,6 @@ public class ShapeDesignerScreen extends ScreenExtension {
         final int[] cell = cellAt(mouseX, mouseY);
         if (cell != null) {
             if (button == 2) {
-                // Middle click: pick the cell's entry as the brush
                 final String entry = profile.getBlockId(cell[0], cell[1]);
                 brush = entry == null ? ERASER : profile.getPalette().indexOf(entry);
             } else {
@@ -413,7 +405,6 @@ public class ShapeDesignerScreen extends ScreenExtension {
                 lastColumn = cell[0];
                 lastRow = cell[1];
             } else {
-                // Left the grid: start a fresh line if the mouse comes back
                 lastColumn = -1;
             }
             return true;
@@ -454,10 +445,5 @@ public class ShapeDesignerScreen extends ScreenExtension {
         }
         final int hash = id.hashCode();
         return 0xFF000000 | (80 + (hash & 0x7F)) << 16 | (80 + ((hash >> 8) & 0x7F)) << 8 | (80 + ((hash >> 16) & 0x7F));
-    }
-
-    @Override
-    public boolean isPauseScreen2() {
-        return false;
     }
 }
