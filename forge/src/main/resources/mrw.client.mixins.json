@@ -5,6 +5,7 @@
   "compatibilityLevel": "${mixin_compat}",
   "refmap": "mrw.refmap.json",
   "client": [
+    "RenderRailsMixin"
   ],
   "injectors": {
     "defaultRequire": 1

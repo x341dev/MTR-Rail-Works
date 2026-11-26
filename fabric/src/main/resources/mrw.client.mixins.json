@@ -4,6 +4,7 @@
   "package": "dev.x341.mrw.mod.mixin.client",
   "compatibilityLevel": "${mixin_compat}",
   "client": [
+    "RenderRailsMixin"
   ],
   "injectors": {
     "defaultRequire": 1
