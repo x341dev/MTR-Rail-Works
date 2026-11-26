@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0-beta.1](https://github.com/x341dev/MTR-Rail-Works/compare/v0.3.0-beta...v0.3.0-beta.1) (2026-11-26)
+
+
+### Bug Fixes
+
+* Forge build error in BlockShapeDesigner and prerelease suffix ([5af4a38](https://github.com/x341dev/MTR-Rail-Works/commit/5af4a38e3dd2f69a85e88e38caff3fa8b4233f6f))
+* remove NotNull from BlockShapeDesigner for Forge and start prereleases at .1 ([3dae05b](https://github.com/x341dev/MTR-Rail-Works/commit/3dae05b2eb962255ada012eee8ee0c0696d5d30f))
+
 ## [0.3.0-beta](https://github.com/x341dev/MTR-Rail-Works/compare/v0.2.3...v0.3.0-beta) (2026-11-26)
 
 
