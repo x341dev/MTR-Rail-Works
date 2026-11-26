@@ -1,9 +1,9 @@
-package dev.x341.mrw.mod.screen;
+package dev.x341.mrw.mod.ui;
 
 import org.mtr.mapping.mapper.GraphicsHolder;
 import org.mtr.mapping.mapper.GuiDrawing;
 
-public final class MrwUiStyle {
+public final class UiStyle {
 
     public static final int DIM = 0xB0101418;
     public static final int PANEL = 0xE01A1E24;
@@ -17,8 +17,10 @@ public final class MrwUiStyle {
     public static final int TEXT = 0xFFFFFFFF;
     public static final int TEXT_DIM = 0xFFA0A0A0;
     public static final int RADIUS = 3;
+    public static final int CHECKED = 0xFF4A3C10;
+    public static final int SLIDER_FILL = 0xFF6B5410;
 
-    private MrwUiStyle() {
+    private UiStyle() {
     }
 
     public static void fillRounded(GraphicsHolder graphicsHolder, int x, int y, int width, int height, int radius, int color) {
