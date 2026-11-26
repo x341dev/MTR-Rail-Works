@@ -56,4 +56,8 @@ public class RailActionModuleMrw {
 	public void markRailForRailWorkerWalls(Rail rail, ServerPlayerEntity serverPlayerEntity, int radius, int height, BlockState blockState, boolean sidesOnly, boolean replace, BlockPos pairStart, BlockPos pairEnd, int wallSide, boolean waitForVanillaTunnelQueue) {
 		railActions.add(new RailActionMrw(serverWorld, serverPlayerEntity, RailActionType.RAIL_WORKER_WALLS, rail, radius + 1, height + 1, blockState, wallSide, pairStart, pairEnd, sidesOnly, replace, waitForVanillaTunnelQueue));
 	}
+
+	public void markRailForShape(Rail rail, ServerPlayerEntity serverPlayerEntity, ShapeProfile profile, BlockState[] paletteStates, BlockPos pairStart, BlockPos pairEnd) {
+		railActions.add(new RailActionMrw(serverWorld, serverPlayerEntity, rail, profile, paletteStates, pairStart, pairEnd));
+	}
 }

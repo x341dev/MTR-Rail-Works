@@ -1,18 +1,15 @@
 package dev.x341.mrw.mod.packet;
 
 import dev.x341.mrw.mod.data.RailWorkerMode;
+import dev.x341.mrw.mod.data.ShapeBlocks;
+import dev.x341.mrw.mod.data.ShapeProfile;
 import dev.x341.mrw.mod.data.WallSide;
 import dev.x341.mrw.mod.item.ItemRailWorker;
 import org.mtr.core.tool.Vector;
 import org.mtr.libraries.it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.mtr.libraries.it.unimi.dsi.fastutil.objects.ObjectObjectImmutablePair;
-import org.mtr.mapping.holder.BlockPos;
-import org.mtr.mapping.holder.BlockState;
-import org.mtr.mapping.holder.CompoundTag;
-import org.mtr.mapping.holder.ItemStack;
-import org.mtr.mapping.holder.MinecraftServer;
-import org.mtr.mapping.holder.ServerPlayerEntity;
-import org.mtr.mapping.holder.World;
+import org.mtr.mapping.holder.*;
+import org.mtr.mapping.mapper.TextHelper;
 import org.mtr.mapping.registry.PacketHandler;
 import org.mtr.mapping.tool.PacketBufferReceiver;
 import org.mtr.mapping.tool.PacketBufferSender;
@@ -96,6 +93,24 @@ public final class PacketApplyRailWorkerBuild extends PacketHandler {
 
 		final CompoundTag tag = itemStack.getOrCreateTag();
 		final int mode = RailWorkerMode.sanitize(tag.getInt(ItemRailWorker.TAG_MODE));
+
+		if (RailWorkerMode.hasShape(mode)) {
+			final ShapeProfile profile = ShapeProfile.readTag(tag);
+			if (profile.isEmpty()) {
+				serverPlayerEntity.sendMessage(new Text(TextHelper.translatable("tooltip.mrw.rail_worker_shape_missing").data), true);
+				return;
+			}
+			final BlockState[] states = new BlockState[profile.getPalette().size()];
+			for (int i = 0; i < states.length; i++) {
+				states[i] = ShapeBlocks.toState(profile.getPalette().get(i));
+			}
+			applyShapePair(serverPlayerEntity, pair1Path, pair1Start, pair1End, profile, states);
+		    if (pair2Path != null) {
+				applyShapePair(serverPlayerEntity, pair2Path, pair2Start, pair2End, profile, states);
+			}
+			return;
+		}
+
 		final boolean replace = tag.getBoolean(ItemRailWorker.TAG_REPLACE);
 		final int width = ItemRailWorker.getWidth(tag);
 		final int radius = width / 2;
@@ -164,6 +179,13 @@ public final class PacketApplyRailWorkerBuild extends PacketHandler {
 					dev.x341.mrw.mod.Init.getRailActionModule(serverPlayerEntity.getServerWorld(), railActionModuleMrw -> railActionModuleMrw.markRailForRailWorkerWalls(rail, serverPlayerEntity, radius, height, wallState, sidesOnly, replace, pairStart, pairEnd, wallSide, waitForVanillaTunnelQueue));
 				}
 			});
+		}
+	}
+
+	private static void applyShapePair(ServerPlayerEntity serverPlayerEntity, ObjectArrayList<ObjectObjectImmutablePair<BlockPos, BlockPos>> path, BlockPos pairStart, BlockPos pairEnd, ShapeProfile profile, BlockState[] states) {
+		final World world = serverPlayerEntity.getEntityWorld();
+		for (final ObjectObjectImmutablePair<BlockPos, BlockPos> segment : path) {
+			ItemNodeModifierBase.getRail(world, segment.left(), segment.right(), serverPlayerEntity, rail -> dev.x341.mrw.mod.Init.getRailActionModule(serverPlayerEntity.getServerWorld(), module -> module.markRailForShape(rail, serverPlayerEntity, profile, states, pairStart, pairEnd)));
 		}
 	}
 

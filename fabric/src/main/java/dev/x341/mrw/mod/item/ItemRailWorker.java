@@ -1,25 +1,13 @@
 package dev.x341.mrw.mod.item;
 
+import dev.x341.mrw.mod.blockentity.BlockEntityShapeDesigner;
 import dev.x341.mrw.mod.client.RailPathFinder;
 import dev.x341.mrw.mod.client.RailWorkerClientHelper;
 import dev.x341.mrw.mod.data.RailWorkerMode;
+import dev.x341.mrw.mod.data.ShapeProfile;
 import org.mtr.libraries.it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.mtr.libraries.it.unimi.dsi.fastutil.objects.ObjectObjectImmutablePair;
-import org.mtr.mapping.holder.Block;
-import org.mtr.mapping.holder.BlockPos;
-import org.mtr.mapping.holder.BlockState;
-import org.mtr.mapping.holder.CompoundTag;
-import org.mtr.mapping.holder.Hand;
-import org.mtr.mapping.holder.HitResultType;
-import org.mtr.mapping.holder.ItemSettings;
-import org.mtr.mapping.holder.ItemStack;
-import org.mtr.mapping.holder.ItemUsageContext;
-import org.mtr.mapping.holder.MutableText;
-import org.mtr.mapping.holder.PlayerEntity;
-import org.mtr.mapping.holder.Text;
-import org.mtr.mapping.holder.TextFormatting;
-import org.mtr.mapping.holder.TooltipContext;
-import org.mtr.mapping.holder.World;
+import org.mtr.mapping.holder.*;
 import org.mtr.mapping.mapper.TextHelper;
 
 import javax.annotation.Nullable;
@@ -83,6 +71,9 @@ public class ItemRailWorker extends ItemNodeModifierSelectableBlockBase {
 						RailWorkerMode.hasWallsCeiling(mode) ? "tooltip.mrw.rail_worker_walls_ceiling" : "tooltip.mrw.rail_worker_walls_none"
 		).getString()).formatted(TextFormatting.GRAY));
 		tooltip.add(TextHelper.translatable("tooltip.mrw.rail_worker_size", getWidth(tag), getHeight(tag)).formatted(TextFormatting.GRAY));
+		if (ShapeProfile.isPresent(tag)) {
+			tooltip.add(TextHelper.translatable("tooltip.mrw.rail_worker_shape").formatted(TextFormatting.GOLD));
+		}
 		tooltip.add(TextHelper.translatable("tooltip.mrw.rail_worker_hint_save").formatted(TextFormatting.GRAY).formatted(TextFormatting.ITALIC));
 		tooltip.add(TextHelper.translatable("tooltip.mrw.rail_worker_hint_force_pair2").formatted(TextFormatting.GRAY).formatted(TextFormatting.ITALIC));
 		tooltip.add(TextHelper.translatable("tooltip.mrw.rail_worker_hint_scroll").formatted(TextFormatting.GRAY).formatted(TextFormatting.ITALIC));
@@ -92,9 +83,24 @@ public class ItemRailWorker extends ItemNodeModifierSelectableBlockBase {
 	@Override
 	protected void saveOrClearBlock(ItemUsageContext context, PlayerEntity player) {
 		final BlockPos blockPos = context.getBlockPos();
-		final BlockState clickedState = context.getWorld().getBlockState(blockPos);
+		final CompoundTag itemTag = context.getStack().getOrCreateTag();
 
-		final CompoundTag tag = context.getStack().getOrCreateTag();
+		final BlockEntity clickedBlockEntity = context.getWorld().getBlockEntity(blockPos);
+		if (clickedBlockEntity != null && clickedBlockEntity.data instanceof BlockEntityShapeDesigner) {
+			final ShapeProfile profile = ((BlockEntityShapeDesigner) clickedBlockEntity.data).getProfile();
+			ShapeProfile.removeTag(itemTag);
+			if (profile.isEmpty()) {
+				player.sendMessage(new Text(TextHelper.translatable("tooltip.mrw.rail_worker_shape_cleared").data), true);
+			} else {
+				profile.writeTag(itemTag);
+				player.sendMessage(new Text(TextHelper.translatable("tooltip.mrw.rail_worker_shape_saved").data), true);
+			}
+			return;
+		}
+
+		final BlockState clickedState = context.getWorld().getBlockState(blockPos);
+		
+		final CompoundTag tag = itemTag;
 		final int targetSlot = tag.getInt(TAG_TARGET_SLOT);
 		final String tagKey = targetSlot == TARGET_WALL ? TAG_WALL_BLOCK : TAG_FLOOR_BLOCK;
 		final int clickedRawId = Block.getRawIdFromState(clickedState);

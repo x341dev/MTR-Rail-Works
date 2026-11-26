@@ -39,6 +39,9 @@ public class RailActionMrw {
 	private final BlockState state;
 	private final boolean waitForVanillaTunnelQueue;
 	private final ObjectOpenHashSet<BlockPos> blacklistedPositions = new ObjectOpenHashSet<>();
+	private ShapeProfile shapeProfile;
+	private BlockState[] shapeStates;
+	private BlockState[][] rotatedStates;
 
 	private static final double INCREMENT = 0.1;
 	// rail.railMath.getPosition() runs curved segments through spline/trig math (unlike straight
@@ -54,6 +57,12 @@ public class RailActionMrw {
 
 	public RailActionMrw(ServerWorld serverWorld, ServerPlayerEntity serverPlayerEntity, RailActionType railActionType, Rail rail, int radius, int height, @Nullable BlockState state, int wallSide) {
 		this(serverWorld, serverPlayerEntity, railActionType, rail, radius, height, state, wallSide, isRailAgainstPlayerFacing(serverPlayerEntity, rail), false, false, false);
+	}
+
+	public RailActionMrw(ServerWorld serverWorld, ServerPlayerEntity serverPlayerEntity, Rail rail, ShapeProfile profile, BlockState[] paletteStates, BlockPos pairStart, BlockPos pairEnd) {
+		this(serverWorld, serverPlayerEntity, RailActionType.RAIL_WORKER_SHAPE, rail, ShapeProfile.SIZE / 2, 0, null, WallSide.BOTH, isRailAgainstNodeOffset(pairStart, pairEnd, rail), false, false, false);
+		shapeProfile = profile;
+		shapeStates = paletteStates;
 	}
 
 	/**
@@ -162,6 +171,8 @@ public class RailActionMrw {
 				return createTunnelWall();
 			case RAIL_WORKER_WALLS:
 				return createRailWorkerWalls();
+			case RAIL_WORKER_SHAPE:
+				return createShape();
 			case BRIDGE_WALL:
 			default:
 				return createBridgeWall();
@@ -178,6 +189,76 @@ public class RailActionMrw {
 
 	private boolean createRailWorkerWalls() {
 		return create(false, sidesOnly, vector -> place(fromVector(vector), replace));
+	}
+
+	private boolean createShape() {
+		final long startTime = System.currentTimeMillis();
+		final int half = ShapeProfile.SIZE / 2;
+		while (System.currentTimeMillis() - startTime < TICK_BUDGET_MILLIS) {
+			final Vector pos1 = rail.railMath.getPosition(distance, false);
+			distance += INCREMENT;
+			final Vector pos2 = rail.railMath.getPosition(distance, false);
+			final double tangentX = pos2.x - pos1.x;
+			final double tangentZ = pos2.z - pos1.z;
+			final double tangentLength = Math.sqrt(tangentX * tangentX + tangentZ * tangentZ);
+
+			if (tangentLength > 1e-9) {
+				final double unitX = tangentX / tangentLength;
+				final double unitZ = tangentZ / tangentLength;
+				// Same perpendicular as the wall builders, so left/right keeps the same convention
+				final Vector perpendicular = new Vector(tangentX, 0, tangentZ).normalize().rotateY((float) Math.PI / 2);
+				// Travel direction as the player clicked it, for rotating directional blocks
+				final BlockRotation rotation = rotationFor(invertWallSide ? tangentX : -tangentX, invertWallSide ? tangentZ : -tangentZ);
+				final int baseY = (int) Math.floor(pos1.y + WHOLE_NUMBER_EPSILON);
+				final int minX = (int) Math.floor(pos1.x) - half - 1;
+				final int minZ = (int) Math.floor(pos1.z) - half - 1;
+
+				if (dev.x341.mrw.mod.MrwDebug.isEnabled() && distance <= 2 * INCREMENT) {
+					dev.x341.mrw.mod.Init.LOGGER.info("[MRW debug] shape: start pos=({}, {}, {}) tangent=({}, {}) invert={} rotation={}", pos1.x, pos1.y, pos1.z, tangentX, tangentZ, invertWallSide, rotation);
+				}
+
+				for (int blockX = minX; blockX <= minX + 2 * (half + 1); blockX++) {
+					for (int blockZ = minZ; blockZ <= minZ + 2 * (half + 1); blockZ++) {
+						final double deltaX = blockX + 0.5 - pos1.x;
+						final double deltaZ = blockZ + 0.5 - pos1.z;
+						// Only blocks whose centre is level with this rail sample, so each block lands on one column
+						if (Math.abs(deltaX * unitX + deltaZ * unitZ) > INCREMENT) {
+							continue;
+						}
+						final double offset = deltaX * perpendicular.x + deltaZ * perpendicular.z;
+						if (Math.abs(offset) >= half + 0.5) {
+							continue;
+						}
+						final int column = Math.max(0, Math.min(ShapeProfile.SIZE - 1, (int) Math.floor((invertWallSide ? -offset : offset) + half + 0.5)));
+						for (int row = 0; row < ShapeProfile.SIZE; row++) {
+							final byte cell = shapeProfile.getCell(column, row);
+							if (cell != ShapeProfile.EMPTY && cell < shapeStates.length) {
+								placeShape(new BlockPos(blockX, baseY + row - ShapeProfile.RAIL_ROW, blockZ), rotatedState(cell, rotation));
+							}
+						}
+					}
+				}
+			}
+
+			if (length - distance < INCREMENT) {
+				sendProgressMessage(100);
+				return true;
+			}
+		}
+
+		sendProgressMessage((float) Utilities.round(100 * distance / length, 1));
+		return false;
+	}
+
+	private void placeShape(BlockPos blockPos, @Nullable BlockState blockState) {
+		if (blockState == null || blacklistedPositions.contains(blockPos) || !canPlace(serverWorld, blockPos)) {
+			return;
+		}
+		if (blockState.isAir() && serverWorld.getBlockState(blockPos).isAir()) {
+			return;
+		}
+		serverWorld.setBlockState(blockPos, blockState);
+		blacklistedPositions.add(blockPos);
 	}
 
 	private void place(BlockPos blockPos) {
@@ -265,4 +346,26 @@ public class RailActionMrw {
 		return Init.newBlockPos(vector.x, vector.y, vector.z);
 	}
 
+	private static BlockRotation rotationFor(double forwardX, double forwardZ) {
+		if (forwardX == 0 && forwardZ == 0) {
+			return BlockRotation.NONE;
+		}
+		if (Math.abs(forwardX) >= Math.abs(forwardZ)) {
+			return forwardX > 0 ? BlockRotation.CLOCKWISE_90 : BlockRotation.COUNTERCLOCKWISE_90;
+		}
+		return forwardZ > 0 ? BlockRotation.CLOCKWISE_180 : BlockRotation.NONE;
+	}
+
+	private BlockState rotatedState(int paletteIndex, BlockRotation rotation) {
+		if (rotatedStates == null) {
+			rotatedStates = new BlockState[4][shapeStates.length];
+		}
+		final int rotationIndex = rotation.ordinal();
+		BlockState state = rotatedStates[rotationIndex][paletteIndex];
+		if (state == null && shapeStates[paletteIndex] != null) {
+			state = shapeStates[paletteIndex].rotate(rotation);
+			rotatedStates[rotationIndex][paletteIndex] = state;
+		}
+		return state;
+	}
 }

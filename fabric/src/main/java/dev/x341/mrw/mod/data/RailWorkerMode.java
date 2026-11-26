@@ -12,6 +12,7 @@ public final class RailWorkerMode {
 	public static final int TUNNEL = 1 << 1;
 	public static final int WALLS_ONLY = 1 << 2;
 	public static final int WALLS_CEILING = 1 << 3;
+	public static final int SHAPE = 1 << 4;
 
 	private RailWorkerMode() {
 	}
@@ -36,8 +37,18 @@ public final class RailWorkerMode {
 		return hasWallsOnly(mode) || hasWallsCeiling(mode);
 	}
 
+	public static boolean hasShape(int mode) {
+		return (mode & SHAPE) != 0;
+	}
+
 	/** Drops Walls + Ceiling whenever Walls Only is also set, so the two stay mutually exclusive. */
 	public static int sanitize(int mode) {
+		if (hasShape(mode)) {
+			return SHAPE;
+		}
 		return hasWallsOnly(mode) ? mode & ~WALLS_CEILING : mode;
 	}
+
+
+
 }
