@@ -2,7 +2,6 @@ package dev.x341.mrw.mod.blocks;
 
 import dev.x341.mrw.mod.blockentity.BlockEntityShapeDesigner;
 import dev.x341.mrw.mod.client.ShapeDesignerClientHelper;
-import org.jetbrains.annotations.NotNull;
 import org.mtr.mapping.holder.*;
 import org.mtr.mapping.mapper.BlockEntityExtension;
 import org.mtr.mapping.mapper.BlockExtension;
@@ -21,7 +20,7 @@ public class BlockShapeDesigner extends BlockExtension implements BlockWithEntit
     }
 
     @Override
-    public @NotNull ActionResult onUse2(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockHitResult hit) {
+    public ActionResult onUse2(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockHitResult hit) {
         if (world.isClient()) {
             ShapeDesignerClientHelper.openScreen(pos);
         }
