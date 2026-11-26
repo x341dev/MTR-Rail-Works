@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.3.0-beta](https://github.com/x341dev/MTR-Rail-Works/compare/v0.2.3...v0.3.0-beta) (2026-11-26)
+
+
+### Features
+
+* add block list with icons and mod block support to shape designer ([0bce0f5](https://github.com/x341dev/MTR-Rail-Works/commit/0bce0f5f8dbedec45d808b537ee3a1f0d86bfa97))
+* add blocks integration to Shape Designer ([368eaeb](https://github.com/x341dev/MTR-Rail-Works/commit/368eaeb862ced6634ed6a38fa5afa56f3b20d5aa))
+* add drag painting, block rotation and names to shape designer ([8c7858a](https://github.com/x341dev/MTR-Rail-Works/commit/8c7858aeed608fb37a5b9f8ee51c7ebf42f9c105))
+* add shape designer block and 9x9 profile storage ([e5f8f52](https://github.com/x341dev/MTR-Rail-Works/commit/e5f8f52a7e59e1121bb044147fb0f4d5415773bc))
+* add shape designer screen and save packet ([1a56367](https://github.com/x341dev/MTR-Rail-Works/commit/1a563673c2fcb731b5b9b9e1fcb80d314d45b2dc))
+* add UI classes for better UI ([4339209](https://github.com/x341dev/MTR-Rail-Works/commit/433920983ca1e66d3f10ee8102ea526f419af6e2))
+* build custom shape profiles with rail worker ([35eb844](https://github.com/x341dev/MTR-Rail-Works/commit/35eb8445f3f18df0a9f0622133195d0df017f59b))
+* copy shape designer profile into rail worker ([13edecd](https://github.com/x341dev/MTR-Rail-Works/commit/13edecdfbc944f95d8187de0a8dd0d107e6a599f))
+* highlight rails and nodes while holding the rail worker ([9dfd66e](https://github.com/x341dev/MTR-Rail-Works/commit/9dfd66ea668cd608a6659c35e167adeb583fc59b))
+
+
+### Bug Fixes
+
+* assign each world block to one profile column when building shapes ([f750f68](https://github.com/x341dev/MTR-Rail-Works/commit/f750f6814422c1efa1a607287a0605a2dd5c94af))
+* forge errors ([4d96d2a](https://github.com/x341dev/MTR-Rail-Works/commit/4d96d2a4d0e1bb51f49dea0aacef3d38a67fa384))
+* only swing the arm when the rail worker does something ([acbcb2b](https://github.com/x341dev/MTR-Rail-Works/commit/acbcb2b94e3ec9a5f7f3858cab634eb6048fc70b))
+* orient shape designer blocks along the rail and mark the rail cell ([339338d](https://github.com/x341dev/MTR-Rail-Works/commit/339338d314141db4e25337c43c2f3b0ba9f687be))
+
 ## [0.2.3](https://github.com/x341dev/MTR-Rail-Works/compare/v0.2.2...v0.2.3) (2026-09-22)
 
 
