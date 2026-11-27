@@ -9,9 +9,9 @@ import java.util.List;
 public final class ShapeProfile {
 
     public static final int SIZE = 9;
-    public static final int MAX_PALETTE = 16;
+    public static final int MAX_PALETTE = 32;
     public static final byte EMPTY = -1;
-    public static final int RAIL_ROW = 2;
+    public static final int RAIL_ROW = 1;
 
     private static final String KEY_PALETTE_SIZE = "mrw_shape_palette_size";
     private static final String KEY_PALETTE_PREFIX = "mrw_shape_palette_";
