@@ -266,6 +266,8 @@ jobs:
             echo "::warning::Could not find ${MTR_JAR} on Modrinth; publishing an unpinned required dependency on MTR."
           fi
 
+          DEPS="${DEPS}"$'\n'"worldedit(recommended){modrinth:worldedit}"
+
           {
             echo "dependencies<<EOF_DEPS"
             echo "$DEPS"
