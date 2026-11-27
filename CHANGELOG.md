@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.3.0-beta.2](https://github.com/x341dev/MTR-Rail-Works/compare/v0.3.0-beta.1...v0.3.0-beta.2) (2026-11-27)
+
+
+### Features
+
+* auto slab placement in Shape Designer and debug-stick style property editing ([3aa15b5](https://github.com/x341dev/MTR-Rail-Works/commit/3aa15b516c9a7497934134061d93f168f93e1e00))
+* integrate WorldEdit support for shape importing and add movement controls in Shape Designer ([bd172ca](https://github.com/x341dev/MTR-Rail-Works/commit/bd172caa958f303e5678292bab42efabdf53ca57))
+
+
+### Bug Fixes
+
+* improve block state selection logic for better matching ([05f7ad5](https://github.com/x341dev/MTR-Rail-Works/commit/05f7ad5f2f508b8e92bccfafd2fe135a5cb0065d))
+* removed @NotNull giving 1.17.1 forge error ([0bde338](https://github.com/x341dev/MTR-Rail-Works/commit/0bde338b30b89db180b5f38f45cf18f4a939b06d))
+* update block entry handling to correctly identify air blocks ([76d8f4e](https://github.com/x341dev/MTR-Rail-Works/commit/76d8f4e41df9641deda24d041d751da6f78da234))
+
 ## [0.3.0-beta.1](https://github.com/x341dev/MTR-Rail-Works/compare/v0.3.0-beta...v0.3.0-beta.1) (2026-11-26)
 
 
