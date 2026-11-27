@@ -128,11 +128,26 @@ public class ShapeDesignerScreen extends ScreenBase {
         });
         addKeyButton(gridLeft() + 2 * (smallWidth + 3), row2Y, smallWidth, "gui.mrw.shape_designer_save", this::saveAndClose);
 
+        final int row3Y = row2Y + COMPONENT_HEIGHT + 3;
+        final int moveWidth = (GRID - 3 * 3) / 4;
+        addMoveButton(gridLeft(), row3Y, moveWidth, "gui.mrw.shape_designer_move_x_minus", -1, 0);
+        addMoveButton(gridLeft() + (moveWidth + 3), row3Y, moveWidth, "gui.mrw.shape_designer_move_x_plus", 1, 0);
+        addMoveButton(gridLeft() + 2 * (moveWidth + 3), row3Y, moveWidth, "gui.mrw.shape_designer_move_y_minus", 0, -1);
+        addMoveButton(gridLeft() + 3 * (moveWidth + 3), row3Y, moveWidth, "gui.mrw.shape_designer_move_y_plus", 0, 1);
+
         final int propertyWidth = (SIDE_WIDTH - 6) * 2 / 5;
         final int resetWidth = SIDE_WIDTH - 6 - 2 * propertyWidth;
         propertyButton = addButton(sideLeft(), rotateY(), propertyWidth, "-", this::nextProperty);
         valueButton = addButton(sideLeft() + propertyWidth + 3, rotateY(), propertyWidth, "-", this::nextValue);
         addKeyButton(sideLeft() + 2 * (propertyWidth + 3), rotateY(), resetWidth, "gui.mrw.shape_designer_rotate_reset", this::resetBrush);
+    }
+
+    private void addMoveButton(int x, int y, int width, String translationKey, int deltaColumn, int deltaRow) {
+        addKeyButton(x, y, width, translationKey, () -> {
+            profile.shift(deltaColumn, deltaRow);
+            profile.compact();
+            brush = ERASER;
+        });
     }
 
     private void addKeyButton(int x, int y, int width, String translationKey, Runnable onPress) {

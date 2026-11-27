@@ -21,6 +21,7 @@ dependencies {
     modImplementation "net.fabricmc:fabric-loader:${buildTools.fabricVersion}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${buildTools.fabricApiVersion}"
     modApi("maven.modrinth:modmenu:${buildTools.modMenuVersion}") { exclude group: "net.fabricmc", module: "fabric-loader" }
+    modLocalRuntime "maven.modrinth:worldedit:${worldEditVersion}"
     modImplementation "maven.modrinth:minecraft-transit-railway:FABRIC-${mtrVersion}+${minecraftVersion}"
 
     shadowImplementation "org.mtr:Minecraft-Mappings-fabric-${minecraftVersion}:0.0.1"

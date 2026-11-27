@@ -1,6 +1,7 @@
 package dev.x341.mrw.mod;
 
 import dev.x341.mrw.mod.data.RailActionModuleMrw;
+import dev.x341.mrw.mod.data.WorldEditShapeImporter;
 import dev.x341.mrw.mod.packet.*;
 import dev.x341.mrw.mod.registry.BlockEntityTypes;
 import dev.x341.mrw.mod.registry.Blocks;
@@ -45,19 +46,27 @@ public final class Init {
 		REGISTRY.registerPacket(PacketCycleRailWorkerTargetSlot.class, PacketCycleRailWorkerTargetSlot::new);
 		REGISTRY.registerPacket(PacketUpdateShapeDesigner.class	, PacketUpdateShapeDesigner::new);
 
-		REGISTRY.registerCommand("mrw", commandBuilder -> commandBuilder.then("debug", debugBuilder -> {
-			debugBuilder.permissionLevel(2);
-			debugBuilder.then("on", onBuilder -> onBuilder.executes(context -> {
-				MrwDebug.setEnabled(true);
-				context.sendSuccess("command.mrw.debug_on", true);
-				return 1;
-			}));
-			debugBuilder.then("off", offBuilder -> offBuilder.executes(context -> {
-				MrwDebug.setEnabled(false);
-				context.sendSuccess("command.mrw.debug_off", true);
-				return 1;
-			}));
-		}));
+		REGISTRY.registerCommand("mrw", commandBuilder -> {
+			commandBuilder.then("debug", debugBuilder -> {
+				debugBuilder.permissionLevel(2);
+				debugBuilder.then("on", onBuilder -> onBuilder.executes(context -> {
+					MrwDebug.setEnabled(true);
+					context.sendSuccess("command.mrw.debug_on", true);
+					return 1;
+				}));
+				debugBuilder.then("off", offBuilder -> offBuilder.executes(context -> {
+					MrwDebug.setEnabled(false);
+					context.sendSuccess("command.mrw.debug_off", true);
+					return 1;
+				}));
+			});
+			if (WorldEditShapeImporter.isAvailable()) {
+				commandBuilder.then("worker", workerBuilder -> {
+					workerBuilder.permissionLevel(2);
+					workerBuilder.then("set_shape", shapeBuilder -> shapeBuilder.then("worldedit", worldEditBuilder -> worldEditBuilder.executes(WorldEditShapeImporter::run)));
+				});
+			}
+		});
 
 		REGISTRY.eventRegistry.registerServerStarted(minecraftServer -> {
 			RAIL_ACTION_MODULES.clear();

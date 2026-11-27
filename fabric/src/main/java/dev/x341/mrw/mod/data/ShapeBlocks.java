@@ -277,6 +277,21 @@ public final class ShapeBlocks {
         return entryOf(baseId, defaultState, propertiesOf(best), keepType);
     }
 
+    @Nullable
+    public static String canonicalEntry(@Nullable String raw) {
+        final String entry = normalizeEntry(raw);
+        if (entry == null || AIR.equals(baseId(entry))) {
+            return null;
+        }
+        final BlockState state = toState(entry);
+        if (state == null) {
+            return null;
+        }
+        final String baseId = baseId(entry);
+        final BlockState defaultState = defaultState(baseId);
+        return defaultState == null ? null : entryOf(baseId, defaultState, propertiesOf(state), isSlabState(state));
+    }
+
     private static String entryOf(String baseId, BlockState defaultState, Map<String, String> properties, boolean keepType) {
         final Map<String, String> defaults = propertiesOf(defaultState);
         final List<String> parts = new ArrayList<>();

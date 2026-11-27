@@ -29,3 +29,10 @@ logoFile="assets/mrw/icon.png"
     versionRange="[4.0.0, 4.1.0)"
     ordering="AFTER"
     side="BOTH"
+
+[[dependencies.mrw]]
+    modId="worldedit"
+    mandatory=false
+    versionRange="[7.2.0,)"
+    ordering="AFTER"
+    side="BOTH"
