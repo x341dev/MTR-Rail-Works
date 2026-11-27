@@ -83,9 +83,11 @@ public final class WorldEditShapeImporter {
                     final Object block = getFullBlock.invoke(clipboard, at.invoke(null, x, bounds[1] + row, z));
                     final String raw = String.valueOf(getAsString.invoke(block));
                     final int brace = raw.indexOf('{');
-                    final String entry = ShapeBlocks.canonicalEntry(brace < 0 ? raw : raw.substring(0, brace));
+                    final String id = ShapeBlocks.baseId(brace < 0 ? raw : raw.substring(0, brace));
+                    final boolean air = id.endsWith("air");
+                    final String entry = air ? ShapeBlocks.AIR : ShapeBlocks.canonicalEntry(brace < 0 ? raw : raw.substring(0, brace));
                     if (entry == null) {
-                        if (!raw.endsWith("air") && !raw.contains("air[")) {
+                        if (!air) {
                             skipped++;
                         }
                         continue;
