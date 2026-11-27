@@ -133,12 +133,26 @@ public final class ShapeBlocks {
         if (wanted.isEmpty()) {
             return defaultState;
         }
+        final Map<String, String> defaults = propertiesOf(defaultState);
+        BlockState best = null;
+        int bestScore = -1;
         for (final BlockState state : statesOf(baseId, defaultState)) {
-            if (propertiesOf(state).entrySet().containsAll(wanted.entrySet())) {
-                return state;
+            final Map<String, String> candidate = propertiesOf(state);
+            if (!candidate.entrySet().containsAll(wanted.entrySet())) {
+                continue;
+            }
+            int score = 0;
+            for (final Map.Entry<String, String> property : defaults.entrySet()) {
+                if (!wanted.containsKey(property.getKey()) && property.getValue().equals(candidate.get(property.getKey()))) {
+                    score++;
+                }
+            }
+            if (score > bestScore) {
+                best = state;
+                bestScore = score;
             }
         }
-        return null;
+        return best;
     }
 
     private static List<BlockState> statesOf(String baseId, BlockState defaultState) {
