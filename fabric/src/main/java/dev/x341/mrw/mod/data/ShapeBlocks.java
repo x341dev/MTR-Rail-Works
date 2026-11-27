@@ -6,6 +6,7 @@ import org.mtr.mapping.holder.Blocks;
 import org.mtr.mapping.holder.CompoundTag;
 import org.mtr.mapping.holder.Item;
 import org.mtr.mapping.holder.ItemConvertible;
+import org.mtr.mapping.holder.SlabBlock;
 import org.mtr.mapping.holder.ItemStack;
 
 import javax.annotation.Nullable;
@@ -191,88 +192,100 @@ public final class ShapeBlocks {
     }
 
     public static String detail(String entry) {
-        return String.join(", ", properties(entry).entrySet().stream().map(e -> e.getKey() + "=" + e.getValue()).toArray(String[]::new));
+        final List<String> parts = new ArrayList<>();
+        for (final Map.Entry<String, String> property : properties(entry).entrySet()) {
+            parts.add(property.getKey() + "=" + property.getValue());
+        }
+        if (isAutoSlab(entry)) {
+            parts.add("type=auto");
+        }
+        return String.join(", ", parts);
+    }
+
+    private static boolean isSlabState(@Nullable BlockState state) {
+        return state != null && SlabBlock.isInstance(state.getBlock());
+    }
+
+    public static boolean isAutoSlab(String entry) {
+        return isSlabState(toState(entry)) && !properties(entry).containsKey("type");
+    }
+
+    public static List<String> propertyKeys(String entry) {
+        return new ArrayList<>(fullProperties(entry).keySet());
+    }
+
+    public static List<String> propertyValues(String entry, String key) {
+        final List<String> values = new ArrayList<>();
+        final String baseId = baseId(entry);
+        final BlockState defaultState = defaultState(baseId);
+        if (defaultState == null) {
+            return values;
+        }
+        if ("type".equals(key) && isSlabState(defaultState)) {
+            return new ArrayList<>(Arrays.asList("auto", "bottom", "top", "double"));
+        }
+        for (final BlockState state : statesOf(baseId, defaultState)) {
+            final String value = propertiesOf(state).get(key);
+            if (value != null && !values.contains(value)) {
+                values.add(value);
+            }
+        }
+        return values;
+    }
+
+    public static String propertyValue(String entry, String key) {
+        if ("type".equals(key) && isSlabState(toState(entry))) {
+            return properties(entry).getOrDefault("type", "auto");
+        }
+        return fullProperties(entry).getOrDefault(key, "");
     }
 
     @Nullable
-    public static String rotate(String entry, char axis) {
+    public static String withProperty(String entry, String key, String value) {
         final String baseId = baseId(entry);
         final BlockState defaultState = defaultState(baseId);
         final BlockState current = toState(entry);
         if (defaultState == null || current == null) {
             return null;
         }
-        final Map<String, String> from = propertiesOf(current);
-        final Map<String, String> full = new LinkedHashMap<>();
-        final Map<String, String> flipOnly = new LinkedHashMap<>();
-        for (final Map.Entry<String, String> property : from.entrySet()) {
-            full.put(property.getKey(), turn(property.getKey(), property.getValue(), axis, true));
-            flipOnly.put(property.getKey(), turn(property.getKey(), property.getValue(), axis, false));
-        }
-        for (final Map<String, String> candidate : Arrays.asList(full, flipOnly)) {
-            if (candidate.equals(from)) {
+        final boolean slabType = "type".equals(key) && isSlabState(current);
+        final boolean auto = slabType && "auto".equals(value);
+        final Map<String, String> wanted = new LinkedHashMap<>(propertiesOf(current));
+        wanted.put(key, auto ? "bottom" : value);
+        BlockState best = null;
+        int bestScore = -1;
+        for (final BlockState state : statesOf(baseId, defaultState)) {
+            final Map<String, String> candidate = propertiesOf(state);
+            if (!wanted.get(key).equals(candidate.get(key))) {
                 continue;
             }
-            for (final BlockState state : statesOf(baseId, defaultState)) {
-                if (propertiesOf(state).equals(candidate)) {
-                    return entryOf(baseId, defaultState, candidate);
+            int score = 0;
+            for (final Map.Entry<String, String> property : wanted.entrySet()) {
+                if (property.getValue().equals(candidate.get(property.getKey()))) {
+                    score++;
                 }
             }
+            if (score > bestScore) {
+                best = state;
+                bestScore = score;
+            }
         }
-        return null;
+        if (best == null) {
+            return null;
+        }
+        final boolean keepType = isSlabState(current) && !auto && (slabType || properties(entry).containsKey("type"));
+        return entryOf(baseId, defaultState, propertiesOf(best), keepType);
     }
 
-    private static String entryOf(String baseId, BlockState defaultState, Map<String, String> properties) {
-        if (properties.equals(propertiesOf(defaultState))) {
-            return baseId;
-        }
+    private static String entryOf(String baseId, BlockState defaultState, Map<String, String> properties, boolean keepType) {
         final Map<String, String> defaults = propertiesOf(defaultState);
         final List<String> parts = new ArrayList<>();
         for (final Map.Entry<String, String> property : properties.entrySet()) {
-            if (!property.getValue().equals(defaults.get(property.getKey()))) {
+            if (!property.getValue().equals(defaults.get(property.getKey())) || (keepType && "type".equals(property.getKey()))) {
                 parts.add(property.getKey() + "=" + property.getValue());
             }
         }
-        return baseId + "[" + String.join(",", parts) + "]";
-    }
-
-    private static String turn(String key, String value, char axis, boolean full) {
-        final boolean upsideDown = (axis == 'x' || axis == 'z') && ("half".equals(key) || "type".equals(key));
-        if (upsideDown) {
-            return "top".equals(value) ? "bottom" : "bottom".equals(value) ? "top" : value;
-        }
-        if (!full) {
-            return value;
-        }
-        switch (key) {
-            case "facing":
-                return cycle(value, axis == 'y' ? new String[]{"north", "east", "south", "west"} : axis == 'x' ? new String[]{"north", "up", "south", "down"} : new String[]{"east", "up", "west", "down"});
-            case "axis":
-                return axis == 'y' ? swap(value, "x", "z") : axis == 'x' ? swap(value, "y", "z") : swap(value, "x", "y");
-            case "rotation":
-                if (axis == 'y') {
-                    try {
-                        return String.valueOf((Integer.parseInt(value) + 4) % 16);
-                    } catch (NumberFormatException ignored) {
-                    }
-                }
-                return value;
-            default:
-                return value;
-        }
-    }
-
-    private static String cycle(String value, String[] order) {
-        for (int i = 0; i < order.length; i++) {
-            if (order[i].equals(value)) {
-                return order[(i + 1) % order.length];
-            }
-        }
-        return value;
-    }
-
-    private static String swap(String value, String a, String b) {
-        return a.equals(value) ? b : b.equals(value) ? a : value;
+        return parts.isEmpty() ? baseId : baseId + "[" + String.join(",", parts) + "]";
     }
 
     public static String getName(String entry) {

@@ -9,6 +9,7 @@ import dev.x341.mrw.mod.data.ShapeProfile;
 import dev.x341.mrw.mod.packet.PacketUpdateShapeDesigner;
 import dev.x341.mrw.mod.ui.UiStyle;
 import dev.x341.mrw.mod.ui.ScreenBase;
+import dev.x341.mrw.mod.ui.components.Button;
 import org.mtr.mapping.holder.BlockPos;
 import org.mtr.mapping.holder.ClickableWidget;
 import org.mtr.mapping.holder.ClientPlayerEntity;
@@ -55,6 +56,9 @@ public class ShapeDesignerScreen extends ScreenBase {
     private String message = "";
     private String hoveredEntry = null;
     private TextFieldWidgetExtension searchField;
+    private Button propertyButton;
+    private Button valueButton;
+    private int propertyIndex = 0;
 
     private int lastColumn = -1;
     private int lastRow = -1;
@@ -124,11 +128,11 @@ public class ShapeDesignerScreen extends ScreenBase {
         });
         addKeyButton(gridLeft() + 2 * (smallWidth + 3), row2Y, smallWidth, "gui.mrw.shape_designer_save", this::saveAndClose);
 
-        final int rotateWidth = (SIDE_WIDTH - 3 * 3) / 4;
-        addKeyButton(sideLeft(), rotateY(), rotateWidth, "gui.mrw.shape_designer_rotate_x", () -> rotateBrush('x'));
-        addKeyButton(sideLeft() + (rotateWidth + 3), rotateY(), rotateWidth, "gui.mrw.shape_designer_rotate_y", () -> rotateBrush('y'));
-        addKeyButton(sideLeft() + 2 * (rotateWidth + 3), rotateY(), rotateWidth, "gui.mrw.shape_designer_rotate_z", () -> rotateBrush('z'));
-        addKeyButton(sideLeft() + 3 * (rotateWidth + 3), rotateY(), rotateWidth, "gui.mrw.shape_designer_rotate_reset", this::resetBrush);
+        final int propertyWidth = (SIDE_WIDTH - 6) * 2 / 5;
+        final int resetWidth = SIDE_WIDTH - 6 - 2 * propertyWidth;
+        propertyButton = addButton(sideLeft(), rotateY(), propertyWidth, "-", this::nextProperty);
+        valueButton = addButton(sideLeft() + propertyWidth + 3, rotateY(), propertyWidth, "-", this::nextValue);
+        addKeyButton(sideLeft() + 2 * (propertyWidth + 3), rotateY(), resetWidth, "gui.mrw.shape_designer_rotate_reset", this::resetBrush);
     }
 
     private void addKeyButton(int x, int y, int width, String translationKey, Runnable onPress) {
@@ -168,17 +172,37 @@ public class ShapeDesignerScreen extends ScreenBase {
         }
     }
 
-    private void rotateBrush(char axis) {
+    private String selectedProperty() {
         final String entry = brushEntry();
         if (entry == null || ShapeBlocks.AIR.equals(entry)) {
-            message = TextHelper.translatable("gui.mrw.shape_designer_rotate_select").getString();
+            return null;
+        }
+        final List<String> keys = ShapeBlocks.propertyKeys(entry);
+        return keys.isEmpty() ? null : keys.get(Math.floorMod(propertyIndex, keys.size()));
+    }
+
+    private void nextProperty() {
+        if (selectedProperty() == null) {
+            message = TextHelper.translatable(brushEntry() == null ? "gui.mrw.shape_designer_rotate_select" : "gui.mrw.shape_designer_rotate_none").getString();
             return;
         }
-        final String rotated = ShapeBlocks.rotate(entry, axis);
-        if (rotated == null) {
+        propertyIndex++;
+    }
+
+    private void nextValue() {
+        final String entry = brushEntry();
+        final String key = selectedProperty();
+        if (entry == null || key == null) {
+            message = TextHelper.translatable(entry == null ? "gui.mrw.shape_designer_rotate_select" : "gui.mrw.shape_designer_rotate_none").getString();
+            return;
+        }
+        final List<String> values = ShapeBlocks.propertyValues(entry, key);
+        final int next = (values.indexOf(ShapeBlocks.propertyValue(entry, key)) + 1) % Math.max(1, values.size());
+        final String changed = values.isEmpty() ? null : ShapeBlocks.withProperty(entry, key, values.get(next));
+        if (changed == null) {
             message = TextHelper.translatable("gui.mrw.shape_designer_rotate_none").getString();
         } else {
-            addToPalette(rotated);
+            addToPalette(changed);
         }
     }
 
@@ -226,6 +250,9 @@ public class ShapeDesignerScreen extends ScreenBase {
 
         hoveredEntry = null;
         ShapeDesignerIcons.clear();
+        final String property = selectedProperty();
+        propertyButton.setLabel(property == null ? "-" : property);
+        valueButton.setLabel(property == null ? "-" : ShapeBlocks.propertyValue(brushEntry(), property));
         UiStyle.roundedBox(graphicsHolder, left - 4, top - 4, GRID + 8, GRID + 8, UiStyle.RADIUS, 0xC0101010, UiStyle.PANEL_BORDER);
         final GuiDrawing guiDrawing = new GuiDrawing(graphicsHolder);
         guiDrawing.beginDrawingRectangle();

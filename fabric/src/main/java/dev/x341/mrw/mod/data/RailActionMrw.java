@@ -41,6 +41,10 @@ public class RailActionMrw {
 	private final ObjectOpenHashSet<BlockPos> blacklistedPositions = new ObjectOpenHashSet<>();
 	private ShapeProfile shapeProfile;
 	private BlockState[] shapeStates;
+	private boolean[] autoSlab;
+	private BlockState[] slabTopStates;
+	private BlockState[] slabBottomStates;
+	private final ObjectOpenHashSet<BlockPos> slabHalfPositions = new ObjectOpenHashSet<>();
 	private BlockState[][] rotatedStates;
 
 	private static final double INCREMENT = 0.1;
@@ -63,6 +67,17 @@ public class RailActionMrw {
 		this(serverWorld, serverPlayerEntity, RailActionType.RAIL_WORKER_SHAPE, rail, ShapeProfile.SIZE / 2, 0, null, WallSide.BOTH, isRailAgainstNodeOffset(pairStart, pairEnd, rail), false, false, false);
 		shapeProfile = profile;
 		shapeStates = paletteStates;
+		autoSlab = new boolean[paletteStates.length];
+		slabTopStates = new BlockState[paletteStates.length];
+		slabBottomStates = new BlockState[paletteStates.length];
+		for (int i = 0; i < paletteStates.length && i < profile.getPalette().size(); i++) {
+			final String entry = profile.getPalette().get(i);
+			if (paletteStates[i] != null && ShapeBlocks.isAutoSlab(entry)) {
+				slabTopStates[i] = ShapeBlocks.toState(ShapeBlocks.baseId(entry) + "[type=top]");
+				slabBottomStates[i] = ShapeBlocks.toState(ShapeBlocks.baseId(entry) + "[type=bottom]");
+				autoSlab[i] = slabTopStates[i] != null && slabBottomStates[i] != null;
+			}
+		}
 	}
 
 	/**
@@ -217,6 +232,8 @@ public class RailActionMrw {
 					dev.x341.mrw.mod.Init.LOGGER.info("[MRW debug] shape: start pos=({}, {}, {}) tangent=({}, {}) invert={} rotation={}", pos1.x, pos1.y, pos1.z, tangentX, tangentZ, invertWallSide, rotation);
 				}
 
+				// Same split as MTR's bridge: rail in the upper half of its block -> bottom slab one row up, otherwise top slab
+				final boolean upperHalf = pos1.y + WHOLE_NUMBER_EPSILON - baseY >= 0.5;
 				for (int blockX = minX; blockX <= minX + 2 * (half + 1); blockX++) {
 					for (int blockZ = minZ; blockZ <= minZ + 2 * (half + 1); blockZ++) {
 						final double deltaX = blockX + 0.5 - pos1.x;
@@ -233,7 +250,12 @@ public class RailActionMrw {
 						for (int row = 0; row < ShapeProfile.SIZE; row++) {
 							final byte cell = shapeProfile.getCell(column, row);
 							if (cell != ShapeProfile.EMPTY && cell < shapeStates.length) {
-								placeShape(new BlockPos(blockX, baseY + row - ShapeProfile.RAIL_ROW, blockZ), rotatedState(cell, rotation));
+								final BlockPos target = new BlockPos(blockX, baseY + row - ShapeProfile.RAIL_ROW, blockZ);
+								if (autoSlab[cell]) {
+									placeAutoSlab(target, cell, upperHalf);
+								} else {
+									placeShape(target, rotatedState(cell, rotation));
+								}
 							}
 						}
 					}
@@ -259,6 +281,16 @@ public class RailActionMrw {
 		}
 		serverWorld.setBlockState(blockPos, blockState);
 		blacklistedPositions.add(blockPos);
+	}
+
+	private void placeAutoSlab(BlockPos blockPos, int paletteIndex, boolean upperHalf) {
+		final BlockPos target = upperHalf ? new BlockPos(blockPos.getX(), blockPos.getY() + 1, blockPos.getZ()) : blockPos;
+		final BlockPos halfKey = new BlockPos(target.getX(), target.getY() * 2 + (upperHalf ? 0 : 1), target.getZ());
+		if (slabHalfPositions.contains(halfKey) || !canPlace(serverWorld, target)) {
+			return;
+		}
+		serverWorld.setBlockState(target, upperHalf ? slabBottomStates[paletteIndex] : slabTopStates[paletteIndex]);
+		slabHalfPositions.add(halfKey);
 	}
 
 	private void place(BlockPos blockPos) {
