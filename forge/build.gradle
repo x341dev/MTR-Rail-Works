@@ -23,7 +23,7 @@ dependencies {
     implementation fg.deobf("maven.modrinth:minecraft-transit-railway:FORGE-${mtrVersion}+${minecraftVersion}")
     annotationProcessor "org.spongepowered:mixin:0.8.5:processor"
 
-    runtimeOnly fg.deobf("maven.modrinth:worldedit:${worldEditVersion}")
+    runtimeOnly fg.deobf("maven.modrinth:worldedit:${buildTools.worldEditVersion}")
     shadowImplementation "org.mtr:Minecraft-Mappings-forge-${minecraftVersion}:0.0.1"
 }
 

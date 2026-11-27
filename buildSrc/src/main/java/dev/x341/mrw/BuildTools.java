@@ -25,6 +25,7 @@ import java.util.Map;
  *   <li>Yarn / Fabric loader / Fabric API → https://fabricmc.net/develop (or https://modmuss50.me/fabric.html)</li>
  *   <li>Mod Menu → https://modrinth.com/mod/modmenu/versions</li>
  *   <li>Forge → https://files.minecraftforge.net/</li>
+ *   <li>WorldEdit → https://modrinth.com/plugin/worldedit/versions</li>
  * </ul>
  * The mapping jar itself (Minecraft-Mappings-&lt;loader&gt;-&lt;version&gt;-0.0.1.jar) is selected
  * automatically by the subproject build via the {@code libs} flatDir repository.</p>
@@ -90,6 +91,11 @@ public final class BuildTools {
         return config.forge;
     }
 
+    /** WorldEdit version used only in the dev run (runtime-only, not a dependency of the jar). */
+    public String getWorldEditVersion() {
+        return config.worldEdit;
+    }
+
     /** Bytecode target ({@code options.release}) — what the shipped jar must run on. */
     public int getJavaRelease() {
         return config.java;
@@ -128,15 +134,17 @@ public final class BuildTools {
         final String fabricApi;
         final String modMenu;
         final String forge;
+        final String worldEdit;
         final int java;
         final int packFormat;
 
-        VersionConfig(String yarn, String fabricLoader, String fabricApi, String modMenu, String forge, int java, int packFormat) {
+        VersionConfig(String yarn, String fabricLoader, String fabricApi, String modMenu, String forge, String worldEdit, int java, int packFormat) {
             this.yarn = yarn;
             this.fabricLoader = fabricLoader;
             this.fabricApi = fabricApi;
             this.modMenu = modMenu;
             this.forge = forge;
+            this.worldEdit = worldEdit;
             this.java = java;
             this.packFormat = packFormat;
         }
@@ -145,12 +153,12 @@ public final class BuildTools {
     private static final Map<String, VersionConfig> CONFIGS = new HashMap<>();
 
     static {
-        //          MC        yarn                     loader      fabric-api          modmenu    forge     java pack
-        CONFIGS.put("1.17.1", new VersionConfig("1.17.1+build.65", "0.19.3", "0.46.1+1.17",   "2.0.17",  "37.1.1",  16, 7));
-        CONFIGS.put("1.18.2", new VersionConfig("1.18.2+build.4",  "0.19.3", "0.77.0+1.18.2", "3.2.5",   "40.2.21", 17, 8));
-        CONFIGS.put("1.19.2", new VersionConfig("1.19.2+build.28", "0.19.3", "0.77.0+1.19.2", "4.1.2",   "43.3.13", 17, 9));
-        CONFIGS.put("1.19.4", new VersionConfig("1.19.4+build.2",  "0.19.3", "0.87.2+1.19.4", "6.3.1",   "45.3.0",  17, 13));
-        CONFIGS.put("1.20.1", new VersionConfig("1.20.1+build.10", "0.19.3", "0.92.9+1.20.1", "7.2.2",   "47.4.0",  17, 15));
-        CONFIGS.put("1.20.4", new VersionConfig("1.20.4+build.3",  "0.19.3", "0.97.2+1.20.4", "9.2.0",   "49.1.0",  17, 22));
+        //          MC        yarn                     loader      fabric-api          modmenu    forge     worldedit java pack
+        CONFIGS.put("1.17.1", new VersionConfig("1.17.1+build.65", "0.19.3", "0.46.1+1.17",   "2.0.17",  "37.1.1",  "7.2.7",  16, 7));
+        CONFIGS.put("1.18.2", new VersionConfig("1.18.2+build.4",  "0.19.3", "0.77.0+1.18.2", "3.2.5",   "40.2.21", "7.2.10", 17, 8));
+        CONFIGS.put("1.19.2", new VersionConfig("1.19.2+build.28", "0.19.3", "0.77.0+1.19.2", "4.1.2",   "43.3.13", "7.2.12", 17, 9));
+        CONFIGS.put("1.19.4", new VersionConfig("1.19.4+build.2",  "0.19.3", "0.87.2+1.19.4", "6.3.1",   "45.3.0",  "7.2.14", 17, 13));
+        CONFIGS.put("1.20.1", new VersionConfig("1.20.1+build.10", "0.19.3", "0.92.9+1.20.1", "7.2.2",   "47.4.0",  "7.2.15", 17, 15));
+        CONFIGS.put("1.20.4", new VersionConfig("1.20.4+build.3",  "0.19.3", "0.97.2+1.20.4", "9.2.0",   "49.1.0",  "7.3.0",  17, 22));
     }
 }
