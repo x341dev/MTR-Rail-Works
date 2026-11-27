@@ -9,9 +9,9 @@ import java.util.List;
 public final class ShapeProfile {
 
     public static final int SIZE = 9;
-    public static final int MAX_PALETTE = 16;
+    public static final int MAX_PALETTE = 32;
     public static final byte EMPTY = -1;
-    public static final int RAIL_ROW = 2;
+    public static final int RAIL_ROW = 1;
 
     private static final String KEY_PALETTE_SIZE = "mrw_shape_palette_size";
     private static final String KEY_PALETTE_PREFIX = "mrw_shape_palette_";
@@ -35,6 +35,20 @@ public final class ShapeProfile {
 
     public void setCell(int column, int row, byte paletteIndex) {
         cells[index(column, row)] = paletteIndex;
+    }
+
+    public void shift(int deltaColumn, int deltaRow) {
+        final byte[] old = cells.clone();
+        Arrays.fill(cells, EMPTY);
+        for (int row = 0; row < SIZE; row++) {
+            for (int column = 0; column < SIZE; column++) {
+                final int newColumn = column + deltaColumn;
+                final int newRow = row + deltaRow;
+                if (newColumn >= 0 && newColumn < SIZE && newRow >= 0 && newRow < SIZE) {
+                    cells[index(newColumn, newRow)] = old[index(column, row)];
+                }
+            }
+        }
     }
 
     public List<String> getPalette() {

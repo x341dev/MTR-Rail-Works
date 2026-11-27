@@ -218,17 +218,61 @@ jobs:
     name: Publish to Modrinth (${{ matrix.loader }} ${{ matrix.minecraft_version }})
     needs: [resolve-release, build-and-pack, publish-github-release]
     runs-on: ubuntu-latest
+    env:
+      MTR_MODRINTH_ID: XKPAmI6u
     strategy:
       fail-fast: false
       matrix:
         minecraft_version: [1.17.1, 1.18.2, 1.19.2, 1.19.4, 1.20.1, 1.20.4]
         loader: [fabric, forge]
     steps:
+      - name: Checkout gradle.properties
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: gradle.properties
+          sparse-checkout-cone-mode: false
+
       - name: Download Artifact
         uses: actions/download-artifact@v6
         with:
           name: mtr-rail-works-jars-${{ matrix.minecraft_version }}
           path: ./ready-libs
+
+      - name: Resolve required MTR version
+        id: mtr
+        env:
+          LOADER: ${{ matrix.loader }}
+          MC: ${{ matrix.minecraft_version }}
+        run: |
+          MTR_VERSION=$(grep -E '^mtrVersion[[:space:]]*=' gradle.properties | cut -d= -f2 | tr -d '[:space:]\r')
+          MTR_JAR="MTR-${LOADER}-${MTR_VERSION}+${MC}.jar"
+          echo "Looking for ${MTR_JAR} on Modrinth project ${MTR_MODRINTH_ID}"
+
+          VERSION_ID=""
+          if RESP=$(curl -fsS --retry 3 --retry-delay 5 -G \
+                 -A "x341dev/MTR-Rail-Works release workflow" \
+                 --data-urlencode "loaders=[\"${LOADER}\"]" \
+                 --data-urlencode "game_versions=[\"${MC}\"]" \
+                 "https://api.modrinth.com/v2/project/${MTR_MODRINTH_ID}/version"); then
+            VERSION_ID=$(printf '%s' "$RESP" | jq -r --arg f "$MTR_JAR" \
+              '[.[] | select(any(.files[]; .filename == $f))][0].id // empty')
+          fi
+
+          if [ -n "$VERSION_ID" ]; then
+            DEPS="mtr@${VERSION_ID}(required){modrinth:${MTR_MODRINTH_ID}}"
+            echo "Pinned MTR dependency to version id ${VERSION_ID}"
+          else
+            DEPS="mtr(required){modrinth:${MTR_MODRINTH_ID}}"
+            echo "::warning::Could not find ${MTR_JAR} on Modrinth; publishing an unpinned required dependency on MTR."
+          fi
+
+          DEPS="${DEPS}"$'\n'"worldedit(recommended){modrinth:worldedit}"
+
+          {
+            echo "dependencies<<EOF_DEPS"
+            echo "$DEPS"
+            echo "EOF_DEPS"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Publish to Modrinth
         uses: Kira-NT/mc-publish@52307b03863581dec6b652b83e597aec02ebb075 # v3
@@ -242,5 +286,6 @@ jobs:
           files: ./ready-libs/*-${{ matrix.loader }}-*.jar
           game-versions: ${{ matrix.minecraft_version }}
           loaders: ${{ matrix.loader }}
+          dependencies: ${{ steps.mtr.outputs.dependencies }}
           retry-attempts: 2
           retry-delay: 10000
